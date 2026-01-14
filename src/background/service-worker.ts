@@ -25,6 +25,8 @@ interface OptimizeMessage {
     platform: Platform;
     mode: OptimizationMode;
     tasteProfile?: TasteProfile;
+    presetId?: string | null;
+    preferenceContext?: string;
   };
 }
 
@@ -110,8 +112,8 @@ async function handleMessage(message: Message): Promise<unknown> {
   switch (message.type) {
     // Prompt optimization
     case 'OPTIMIZE_PROMPT': {
-      const { prompt, platform, mode, tasteProfile } = message.payload;
-      const result = await optimizePrompt(prompt, platform, mode, tasteProfile);
+      const { prompt, platform, mode, tasteProfile, presetId, preferenceContext } = message.payload;
+      const result = await optimizePrompt(prompt, platform, mode, tasteProfile, presetId, preferenceContext);
 
       if (result.success && result.optimizedPrompt) {
         // Add to history

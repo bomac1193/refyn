@@ -1,6 +1,10 @@
 import { detectPlatform, findPromptInputs, getInputText, setInputText, getPlatformInputSelector } from './platformDetector';
 import type { Platform, OptimizationMode } from '@/shared/types';
 import { PLATFORMS } from '@/shared/constants';
+import { getPresetsForCategory } from '@/shared/presets';
+import { recordFeedback, getPreferenceContext } from '@/lib/preferences';
+import { getSuggestedKeywords, getKeywordsToAvoid, getSmartSuggestionContext } from '@/lib/deepLearning';
+import { getQuickQuality } from '@/lib/promptAnalyzer';
 
 let panel: HTMLElement | null = null;
 let isMinimized = false;
@@ -8,6 +12,10 @@ let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
 let currentPlatform: Platform = 'unknown';
 let selectedMode: OptimizationMode = 'enhance';
+let selectedPreset: string | null = null;
+let lastOriginalPrompt = '';
+let lastRefinedPrompt = '';
+let isMoodboardMode = false;
 
 // Live sync state
 let isLiveSyncEnabled = true;
@@ -17,6 +25,20 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 const DEBOUNCE_DELAY = 150; // ms
 
 const PANEL_ID = 'refyn-floating-panel';
+
+/**
+ * Strip --weird parameter from Midjourney prompts for moodboard compatibility
+ * Matches: --weird [number], --w [number], --weird[number], --w[number]
+ */
+function stripWeirdParameter(prompt: string): string {
+  // Match --weird or --w followed by optional space and a number
+  return prompt
+    .replace(/\s*--weird\s*\d+/gi, '')
+    .replace(/\s*--w\s+\d+/gi, '')
+    .replace(/\s*--w\d+/gi, '')
+    .trim()
+    .replace(/\s+/g, ' '); // Clean up any double spaces
+}
 
 export function createFloatingPanel(): void {
   if (document.getElementById(PANEL_ID)) return;
@@ -47,12 +69,111 @@ export function createFloatingPanel(): void {
   // Restore position from localStorage
   restorePosition();
 
+  // Restore minimized state
+  const wasMinimized = localStorage.getItem('refyn-panel-minimized') === 'true';
+  if (wasMinimized && !isMinimized) {
+    // Use setTimeout to ensure panel is fully rendered before minimizing
+    setTimeout(() => toggleMinimize(), 100);
+  }
+
   // Start live sync
   if (isLiveSyncEnabled) {
     startLiveSync();
   }
 
   console.log('[Refyn] Floating panel initialized for:', currentPlatform);
+}
+
+function generatePresetOptions(): string {
+  const platformInfo = PLATFORMS[currentPlatform] || PLATFORMS.unknown;
+  const presets = getPresetsForCategory(platformInfo.category);
+
+  return presets.map(preset => `
+    <button class="refyn-preset-btn ${selectedPreset === preset.id ? 'active' : ''}"
+            data-preset="${preset.id}"
+            title="${preset.description}">
+      ${preset.name}
+    </button>
+  `).join('');
+}
+
+// Smart suggestions section (populated dynamically)
+async function loadSmartSuggestions(): Promise<void> {
+  const suggestionsContainer = panel?.querySelector('#refyn-suggestions-content');
+  if (!suggestionsContainer) return;
+
+  try {
+    const [suggested, avoid] = await Promise.all([
+      getSuggestedKeywords(currentPlatform, 5),
+      getKeywordsToAvoid(currentPlatform, 3),
+    ]);
+
+    if (suggested.length === 0 && avoid.length === 0) {
+      // No preferences learned yet
+      suggestionsContainer.innerHTML = `
+        <span class="refyn-no-suggestions">Rate some outputs to see personalized suggestions</span>
+      `;
+      return;
+    }
+
+    let html = '';
+
+    // Suggested keywords (to add)
+    for (const s of suggested) {
+      html += `
+        <button class="refyn-suggestion-chip" data-keyword="${s.keyword}" title="Click to add to prompt">
+          <span class="refyn-suggestion-add">+</span>
+          ${s.keyword}
+        </button>
+      `;
+    }
+
+    // Keywords to avoid
+    for (const a of avoid) {
+      html += `
+        <button class="refyn-suggestion-chip refyn-avoid" data-avoid="${a.keyword}" title="You disliked outputs with this">
+          <span class="refyn-suggestion-remove">-</span>
+          ${a.keyword}
+        </button>
+      `;
+    }
+
+    suggestionsContainer.innerHTML = html;
+
+    // Add click handlers
+    suggestionsContainer.querySelectorAll('.refyn-suggestion-chip[data-keyword]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const keyword = (chip as HTMLElement).dataset.keyword;
+        if (keyword) {
+          addKeywordToPrompt(keyword);
+        }
+      });
+    });
+  } catch (error) {
+    console.log('[Refyn] Could not load smart suggestions:', error);
+    suggestionsContainer.innerHTML = '';
+  }
+}
+
+function addKeywordToPrompt(keyword: string): void {
+  const textarea = panel?.querySelector('#refyn-input') as HTMLTextAreaElement;
+  if (!textarea) return;
+
+  const currentValue = textarea.value.trim();
+  if (currentValue.toLowerCase().includes(keyword.toLowerCase())) {
+    showToast('Already in prompt');
+    return;
+  }
+
+  // Add keyword to the prompt
+  if (currentValue) {
+    textarea.value = `${currentValue}, ${keyword}`;
+  } else {
+    textarea.value = keyword;
+  }
+
+  updateCharCount(textarea.value.length);
+  showToast(`Added: ${keyword}`);
 }
 
 function generatePanelHTML(): string {
@@ -69,6 +190,12 @@ function generatePanelHTML(): string {
         <div class="refyn-panel-platform">
           <span class="refyn-platform-dot" style="background: ${platformInfo.color}"></span>
           <span class="refyn-platform-name">${platformInfo.name}</span>
+        </div>
+        <div class="refyn-learning-indicator" id="refyn-learning-indicator" title="Refyn is learning your preferences">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 6v6l4 2"></path>
+          </svg>
         </div>
         <div class="refyn-panel-controls">
           <button class="refyn-control-btn" id="refyn-minimize-btn" title="${isMinimized ? 'Expand' : 'Minimize'}">
@@ -105,6 +232,18 @@ function generatePanelHTML(): string {
           </button>
         </div>
 
+        <!-- Moodboard Toggle (Midjourney only) -->
+        ${currentPlatform === 'midjourney' ? `
+        <div class="refyn-moodboard-toggle">
+          <label class="refyn-toggle-label">
+            <input type="checkbox" id="refyn-moodboard-checkbox" ${isMoodboardMode ? 'checked' : ''}>
+            <span class="refyn-toggle-switch"></span>
+            <span class="refyn-toggle-text">Moodboard Mode</span>
+            <span class="refyn-toggle-hint">(removes --weird)</span>
+          </label>
+        </div>
+        ` : ''}
+
         <!-- Mode Selector -->
         <div class="refyn-mode-selector">
           <button class="refyn-mode-btn ${selectedMode === 'enhance' ? 'active' : ''}" data-mode="enhance" title="Improve clarity and detail">
@@ -137,6 +276,50 @@ function generatePanelHTML(): string {
             </svg>
             Params
           </button>
+          <button class="refyn-mode-btn refyn-mode-crazy ${selectedMode === 'crazy' ? 'active' : ''}" data-mode="crazy" title="Hidden platform tricks & magic triggers">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+            Crazy
+          </button>
+        </div>
+
+        <!-- Style Presets -->
+        <div class="refyn-presets-section">
+          <div class="refyn-presets-header">
+            <span>Style Preset</span>
+            <button class="refyn-preset-clear ${!selectedPreset ? 'hidden' : ''}" id="refyn-clear-preset" title="Clear preset">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="refyn-presets-grid" id="refyn-presets-grid">
+            ${generatePresetOptions()}
+          </div>
+        </div>
+
+        <!-- Smart Suggestions (Learned Preferences) -->
+        <div class="refyn-suggestions-section" id="refyn-suggestions-section">
+          <div class="refyn-suggestions-header">
+            <div class="refyn-suggestions-title">
+              <span class="refyn-suggestions-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="16" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+              </span>
+              Your Taste Profile
+            </div>
+            <button class="refyn-suggestions-toggle" id="refyn-refresh-suggestions" title="Refresh suggestions">
+              Refresh
+            </button>
+          </div>
+          <div class="refyn-suggestions-content" id="refyn-suggestions-content">
+            <span class="refyn-no-suggestions">Loading preferences...</span>
+          </div>
         </div>
 
         <!-- Input Area -->
@@ -144,6 +327,12 @@ function generatePanelHTML(): string {
           <div class="refyn-input-header">
             <span>Your Prompt</span>
             <div class="refyn-input-actions">
+              <div class="refyn-quality-indicator" id="refyn-quality-indicator" title="Prompt quality score">
+                <span class="refyn-quality-grade" id="refyn-quality-grade">-</span>
+                <div class="refyn-quality-bar">
+                  <div class="refyn-quality-fill" id="refyn-quality-fill"></div>
+                </div>
+              </div>
               <span class="refyn-char-count" id="refyn-char-count">0 chars</span>
               <button class="refyn-grab-btn" id="refyn-grab-prompt" title="Grab from page">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -155,7 +344,7 @@ function generatePanelHTML(): string {
               </button>
             </div>
           </div>
-          <textarea id="refyn-input" class="refyn-textarea" placeholder="Start typing in your prompt field - I'll sync automatically..." rows="3"></textarea>
+          <textarea id="refyn-input" class="refyn-textarea" placeholder="Type in your prompt field - syncs automatically..." rows="2"></textarea>
         </div>
 
         <!-- Action Button -->
@@ -192,6 +381,30 @@ function generatePanelHTML(): string {
             </div>
           </div>
           <div id="refyn-output" class="refyn-output-text"></div>
+
+          <!-- Feedback Section -->
+          <div class="refyn-feedback-section">
+            <span class="refyn-feedback-label">How was this result?</span>
+            <div class="refyn-feedback-buttons">
+              <button class="refyn-feedback-btn refyn-feedback-like" id="refyn-like-btn" title="I like this">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                </svg>
+              </button>
+              <button class="refyn-feedback-btn refyn-feedback-dislike" id="refyn-dislike-btn" title="I don't like this">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+                </svg>
+              </button>
+              <button class="refyn-feedback-btn refyn-feedback-regen" id="refyn-regen-btn" title="Try again">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 4v6h-6"></path>
+                  <path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Loading State -->
@@ -216,6 +429,15 @@ function setupEventListeners(): void {
   document.addEventListener('mousemove', onDrag);
   document.addEventListener('mouseup', stopDrag);
 
+  // Click on header to expand when minimized
+  dragHandle?.addEventListener('click', (e) => {
+    // Only expand if clicking on the header itself, not buttons
+    const target = e.target as HTMLElement;
+    if (isMinimized && !target.closest('button')) {
+      toggleMinimize();
+    }
+  });
+
   // Minimize button
   panel.querySelector('#refyn-minimize-btn')?.addEventListener('click', toggleMinimize);
 
@@ -225,6 +447,13 @@ function setupEventListeners(): void {
   // Live sync toggle
   panel.querySelector('#refyn-sync-toggle')?.addEventListener('click', toggleLiveSync);
 
+  // Moodboard toggle (Midjourney only)
+  panel.querySelector('#refyn-moodboard-checkbox')?.addEventListener('change', (e) => {
+    isMoodboardMode = (e.target as HTMLInputElement).checked;
+    localStorage.setItem('refyn-moodboard-mode', isMoodboardMode ? 'true' : 'false');
+    showToast(isMoodboardMode ? 'Moodboard mode: --weird will be removed' : 'Moodboard mode off');
+  });
+
   // Mode buttons
   panel.querySelectorAll('.refyn-mode-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -232,6 +461,34 @@ function setupEventListeners(): void {
       setMode(mode);
     });
   });
+
+  // Preset buttons
+  panel.querySelectorAll('.refyn-preset-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const presetId = (e.currentTarget as HTMLElement).dataset.preset;
+      if (presetId) {
+        setPreset(presetId);
+      }
+    });
+  });
+
+  // Clear preset button
+  panel.querySelector('#refyn-clear-preset')?.addEventListener('click', () => {
+    setPreset(null);
+  });
+
+  // Refresh suggestions button
+  panel.querySelector('#refyn-refresh-suggestions')?.addEventListener('click', () => {
+    loadSmartSuggestions();
+  });
+
+  // Load smart suggestions on init
+  loadSmartSuggestions();
+
+  // Feedback buttons
+  panel.querySelector('#refyn-like-btn')?.addEventListener('click', () => handleFeedback('like'));
+  panel.querySelector('#refyn-dislike-btn')?.addEventListener('click', () => handleFeedback('dislike'));
+  panel.querySelector('#refyn-regen-btn')?.addEventListener('click', () => handleFeedback('regenerate'));
 
   // Grab prompt button
   panel.querySelector('#refyn-grab-prompt')?.addEventListener('click', grabPromptFromPage);
@@ -333,6 +590,18 @@ function updateSyncStatus(active: boolean, inputFound: boolean = true): void {
   }
 }
 
+function isRefynElement(el: HTMLElement): boolean {
+  let current: HTMLElement | null = el;
+  while (current) {
+    if (current.id?.startsWith('refyn-') ||
+        current.className?.toString().includes('refyn-')) {
+      return true;
+    }
+    current = current.parentElement;
+  }
+  return false;
+}
+
 function findAndTrackInput(): void {
   // First try platform-specific selector
   const platformSelector = getPlatformInputSelector(currentPlatform);
@@ -341,7 +610,7 @@ function findAndTrackInput(): void {
   if (platformSelector) {
     const elements = document.querySelectorAll<HTMLElement>(platformSelector);
     for (const el of elements) {
-      if (isVisibleElement(el)) {
+      if (isVisibleElement(el) && !isRefynElement(el)) {
         input = el;
         break;
       }
@@ -351,6 +620,7 @@ function findAndTrackInput(): void {
   // Fallback to generic search
   if (!input) {
     const inputs = findPromptInputs();
+    // findPromptInputs already excludes Refyn elements
     input = inputs[0] || null;
   }
 
@@ -485,6 +755,47 @@ function updateCharCount(count: number): void {
     charCount.textContent = `${count} chars`;
     charCount.classList.toggle('refyn-char-warning', count > 2000);
   }
+
+  // Also update quality score
+  const textarea = panel?.querySelector('#refyn-input') as HTMLTextAreaElement;
+  if (textarea) {
+    updateQualityScore(textarea.value);
+  }
+}
+
+function updateQualityScore(prompt: string): void {
+  const gradeEl = panel?.querySelector('#refyn-quality-grade');
+  const fillEl = panel?.querySelector('#refyn-quality-fill') as HTMLElement;
+  const indicator = panel?.querySelector('#refyn-quality-indicator') as HTMLElement;
+
+  if (!gradeEl || !fillEl || !indicator) return;
+
+  if (!prompt.trim()) {
+    gradeEl.textContent = '-';
+    fillEl.style.width = '0%';
+    fillEl.style.background = '#52525B';
+    indicator.title = 'Type a prompt to see quality score';
+    return;
+  }
+
+  const quality = getQuickQuality(prompt, currentPlatform);
+
+  gradeEl.textContent = quality.grade;
+  fillEl.style.width = `${quality.score}%`;
+  fillEl.style.background = quality.color;
+
+  // Build tooltip with score breakdown
+  let tooltip = `Quality: ${quality.grade} (${quality.score}/100)`;
+  if (quality.score >= 80) {
+    tooltip += '\nExcellent prompt!';
+  } else if (quality.score >= 60) {
+    tooltip += '\nGood prompt, could be better';
+  } else if (quality.score >= 40) {
+    tooltip += '\nAdd more specificity';
+  } else {
+    tooltip += '\nNeeds more detail and clarity';
+  }
+  indicator.title = tooltip;
 }
 
 // =====================================================
@@ -552,6 +863,28 @@ function restorePosition(): void {
     if (syncPref === 'false') {
       isLiveSyncEnabled = false;
     }
+
+    // Restore moodboard preference
+    const moodboardPref = localStorage.getItem('refyn-moodboard-mode');
+    if (moodboardPref === 'true') {
+      isMoodboardMode = true;
+      const checkbox = panel?.querySelector('#refyn-moodboard-checkbox') as HTMLInputElement;
+      if (checkbox) checkbox.checked = true;
+    }
+
+    // Restore last used preset
+    const lastPreset = localStorage.getItem('refyn-last-preset');
+    if (lastPreset) {
+      selectedPreset = lastPreset;
+      // Update UI after a brief delay to ensure panel is rendered
+      setTimeout(() => {
+        panel?.querySelectorAll('.refyn-preset-btn').forEach(btn => {
+          btn.classList.toggle('active', (btn as HTMLElement).dataset.preset === lastPreset);
+        });
+        const clearBtn = panel?.querySelector('#refyn-clear-preset');
+        clearBtn?.classList.toggle('hidden', !lastPreset);
+      }, 50);
+    }
   } catch {
     // Use default position
   }
@@ -566,37 +899,40 @@ function toggleMinimize(): void {
   const container = panel?.querySelector('.refyn-panel-container');
   const body = panel?.querySelector('#refyn-panel-body') as HTMLElement;
   const btn = panel?.querySelector('#refyn-minimize-btn');
+  const closeBtn = panel?.querySelector('#refyn-close-btn') as HTMLElement;
 
   if (isMinimized) {
     container?.classList.add('refyn-minimized');
+    container?.classList.add('refyn-compact');
     if (body) body.style.display = 'none';
+    if (closeBtn) closeBtn.style.display = 'none';
     if (btn) btn.innerHTML = `
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="15 3 21 3 21 9"></polyline>
-        <polyline points="9 21 3 21 3 15"></polyline>
-        <line x1="21" y1="3" x2="14" y2="10"></line>
-        <line x1="3" y1="21" x2="10" y2="14"></line>
+        <polyline points="17 11 12 6 7 11"></polyline>
+        <polyline points="17 18 12 13 7 18"></polyline>
       </svg>
     `;
   } else {
     container?.classList.remove('refyn-minimized');
+    container?.classList.remove('refyn-compact');
     if (body) body.style.display = 'block';
+    if (closeBtn) closeBtn.style.display = 'flex';
     if (btn) btn.innerHTML = `
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
     `;
   }
+
+  // Save state
+  localStorage.setItem('refyn-panel-minimized', isMinimized ? 'true' : 'false');
 }
 
 function closePanel(): void {
-  stopLiveSync();
-  panel?.remove();
-  panel = null;
-  localStorage.setItem('refyn-panel-closed', 'true');
-
-  // Show the trigger button instead
-  createTriggerButton();
+  // Instead of fully closing, just minimize to compact mode
+  if (!isMinimized) {
+    toggleMinimize();
+  }
 }
 
 function setMode(mode: OptimizationMode): void {
@@ -604,6 +940,60 @@ function setMode(mode: OptimizationMode): void {
   panel?.querySelectorAll('.refyn-mode-btn').forEach(btn => {
     btn.classList.toggle('active', (btn as HTMLElement).dataset.mode === mode);
   });
+}
+
+function setPreset(presetId: string | null): void {
+  selectedPreset = presetId;
+
+  // Update preset button states
+  panel?.querySelectorAll('.refyn-preset-btn').forEach(btn => {
+    btn.classList.toggle('active', (btn as HTMLElement).dataset.preset === presetId);
+  });
+
+  // Show/hide clear button
+  const clearBtn = panel?.querySelector('#refyn-clear-preset');
+  clearBtn?.classList.toggle('hidden', !presetId);
+
+  // Store preference
+  if (presetId) {
+    localStorage.setItem('refyn-last-preset', presetId);
+    showToast(`Style: ${presetId}`);
+  } else {
+    localStorage.removeItem('refyn-last-preset');
+  }
+}
+
+async function handleFeedback(type: 'like' | 'dislike' | 'regenerate'): Promise<void> {
+  if (!lastOriginalPrompt || !lastRefinedPrompt) {
+    return;
+  }
+
+  // Record feedback for learning
+  await recordFeedback(
+    lastOriginalPrompt,
+    lastRefinedPrompt,
+    currentPlatform,
+    type,
+    selectedPreset || undefined
+  );
+
+  // Visual feedback
+  const btn = panel?.querySelector(`#refyn-${type === 'regenerate' ? 'regen' : type}-btn`);
+  btn?.classList.add('active');
+  setTimeout(() => btn?.classList.remove('active'), 500);
+
+  if (type === 'like') {
+    showToast('Thanks! Learning your preferences...');
+    // Refresh suggestions to show updated preferences
+    setTimeout(loadSmartSuggestions, 500);
+  } else if (type === 'dislike') {
+    showToast('Noted! Will adjust future suggestions.');
+    // Refresh suggestions to show updated preferences
+    setTimeout(loadSmartSuggestions, 500);
+  } else if (type === 'regenerate') {
+    // Re-run refinement
+    refinePrompt();
+  }
 }
 
 function grabPromptFromPage(): void {
@@ -635,7 +1025,25 @@ async function refinePrompt(): Promise<void> {
     return;
   }
 
-  console.log('[Refyn Panel] Sending to background:', { platform: currentPlatform, mode: selectedMode, promptLength: prompt.length });
+  // Store original prompt for feedback
+  lastOriginalPrompt = prompt;
+
+  // Get preference context from simple learning system
+  const preferenceContext = await getPreferenceContext();
+
+  // Get smart suggestion context from deep learning system
+  const smartContext = await getSmartSuggestionContext(currentPlatform);
+
+  // Combine both contexts
+  const combinedContext = preferenceContext + smartContext;
+
+  console.log('[Refyn Panel] Sending to background:', {
+    platform: currentPlatform,
+    mode: selectedMode,
+    presetId: selectedPreset,
+    hasPreferences: !!combinedContext,
+    promptLength: prompt.length
+  });
   setLoading(true);
   hideError();
 
@@ -646,12 +1054,16 @@ async function refinePrompt(): Promise<void> {
         prompt,
         platform: currentPlatform,
         mode: selectedMode,
+        presetId: selectedPreset,
+        preferenceContext: combinedContext,
       },
     });
 
     console.log('[Refyn Panel] Response:', response);
 
     if (response?.success && response?.data?.optimizedPrompt) {
+      // Store refined prompt for feedback
+      lastRefinedPrompt = response.data.optimizedPrompt;
       showOutput(response.data.optimizedPrompt);
       showToast('Prompt refined!');
     } else {
@@ -687,8 +1099,17 @@ function showOutput(text: string): void {
   const output = panel?.querySelector('#refyn-output') as HTMLElement;
 
   if (section && output) {
+    // Apply moodboard stripping if enabled for Midjourney
+    let displayText = text;
+    if (isMoodboardMode && currentPlatform === 'midjourney') {
+      displayText = stripWeirdParameter(text);
+    }
+
     section.style.display = 'block';
-    output.textContent = text;
+    output.textContent = displayText;
+
+    // Also update the stored refined prompt for copy/insert
+    lastRefinedPrompt = displayText;
   }
 }
 
@@ -781,10 +1202,71 @@ export function destroyFloatingPanel(): void {
 
 export function showFloatingPanel(): void {
   localStorage.removeItem('refyn-panel-closed');
+  localStorage.removeItem('refyn-panel-minimized');
   removeTriggerButton();
   if (!panel) {
     createFloatingPanel();
+  } else if (isMinimized) {
+    toggleMinimize();
   }
+}
+
+/**
+ * Toggle floating panel visibility (minimize/expand)
+ * Used by keyboard shortcut Ctrl+Shift+E
+ */
+export function toggleFloatingPanel(): void {
+  if (!panel) {
+    // Panel doesn't exist, create it
+    forceShowFloatingPanel();
+  } else {
+    // Toggle minimize state
+    toggleMinimize();
+  }
+}
+
+/**
+ * Force show floating panel even on unknown platforms
+ * Used when user explicitly requests via popup button
+ */
+export function forceShowFloatingPanel(): void {
+  localStorage.removeItem('refyn-panel-closed');
+  localStorage.removeItem('refyn-panel-minimized');
+  removeTriggerButton();
+
+  if (panel) {
+    // Panel exists, just expand it
+    if (isMinimized) {
+      toggleMinimize();
+    }
+    return;
+  }
+
+  // Force create panel even on unknown platform
+  const detectedPlatform = detectPlatform();
+  currentPlatform = detectedPlatform === 'unknown' ? 'chatgpt' : detectedPlatform; // Default to chatgpt for unknown
+
+  panel = document.createElement('div');
+  panel.id = PANEL_ID;
+  panel.innerHTML = generatePanelHTML();
+
+  panel.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 2147483646;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  `;
+
+  document.body.appendChild(panel);
+  setupEventListeners();
+  restorePosition();
+
+  if (isLiveSyncEnabled) {
+    startLiveSync();
+  }
+
+  console.log('[Refyn] Floating panel force-initialized for:', currentPlatform);
 }
 
 // =====================================================
@@ -831,5 +1313,375 @@ function removeTriggerButton(): void {
 export function initTriggerIfNeeded(): void {
   if (currentPlatform !== 'unknown' && localStorage.getItem('refyn-panel-closed')) {
     createTriggerButton();
+  }
+}
+
+// =====================================================
+// LEARNING INDICATOR & QUICK RATE
+// =====================================================
+
+/**
+ * Flash the learning indicator to show Refyn learned something
+ */
+export function flashLearningIndicator(message?: string): void {
+  const indicator = document.getElementById('refyn-learning-indicator');
+  if (!indicator) return;
+
+  // Add active class for animation
+  indicator.classList.add('refyn-learning-active');
+
+  // Update tooltip with message
+  if (message) {
+    indicator.title = message;
+  }
+
+  // Remove active class after animation
+  setTimeout(() => {
+    indicator.classList.remove('refyn-learning-active');
+    indicator.title = 'Refyn is learning your preferences';
+  }, 2000);
+}
+
+/**
+ * Show quick-rate popup after a new output is detected
+ */
+let quickRateElement: HTMLElement | null = null;
+let quickRateTimeout: ReturnType<typeof setTimeout> | null = null;
+
+export function showQuickRatePopup(outputId: string, prompt?: string): void {
+  // Remove existing popup
+  hideQuickRatePopup();
+
+  quickRateElement = document.createElement('div');
+  quickRateElement.className = 'refyn-quick-rate';
+  quickRateElement.innerHTML = `
+    <div class="refyn-quick-rate-inner">
+      <span class="refyn-quick-rate-label">New output detected</span>
+      <div class="refyn-quick-rate-buttons">
+        <button class="refyn-quick-rate-btn refyn-quick-like" data-action="like" title="I like this">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+          </svg>
+        </button>
+        <button class="refyn-quick-rate-btn refyn-quick-dislike" data-action="dislike" title="I don't like this">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+          </svg>
+        </button>
+        <button class="refyn-quick-rate-btn refyn-quick-dismiss" data-action="dismiss" title="Dismiss">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Store output info for rating
+  quickRateElement.dataset.outputId = outputId;
+  quickRateElement.dataset.prompt = prompt || '';
+
+  // Add click handlers
+  quickRateElement.querySelectorAll('.refyn-quick-rate-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const action = (btn as HTMLElement).dataset.action;
+      const storedPrompt = quickRateElement?.dataset.prompt;
+      const storedOutputId = quickRateElement?.dataset.outputId;
+
+      if (action === 'dismiss') {
+        hideQuickRatePopup();
+        return;
+      }
+
+      if (action && storedPrompt && storedOutputId) {
+        // Dynamic import to avoid circular dependency
+        const { recordOutputFeedback } = await import('@/lib/deepLearning');
+        await recordOutputFeedback(
+          storedPrompt,
+          storedOutputId,
+          currentPlatform,
+          action as 'like' | 'dislike'
+        );
+
+        // Visual feedback
+        (btn as HTMLElement).classList.add('active');
+        flashLearningIndicator(action === 'like' ? 'Preference saved!' : 'Will avoid similar');
+
+        setTimeout(() => hideQuickRatePopup(), 500);
+      } else {
+        hideQuickRatePopup();
+      }
+    });
+  });
+
+  document.body.appendChild(quickRateElement);
+
+  // Auto-dismiss after 8 seconds
+  quickRateTimeout = setTimeout(() => {
+    hideQuickRatePopup();
+  }, 8000);
+}
+
+function hideQuickRatePopup(): void {
+  if (quickRateTimeout) {
+    clearTimeout(quickRateTimeout);
+    quickRateTimeout = null;
+  }
+
+  if (quickRateElement) {
+    quickRateElement.classList.add('refyn-quick-rate-fade');
+    setTimeout(() => {
+      quickRateElement?.remove();
+      quickRateElement = null;
+    }, 200);
+  }
+}
+
+// =====================================================
+// TRASH/DELETE OBSERVER & FEEDBACK
+// =====================================================
+
+const TRASH_FEEDBACK_PRESETS = [
+  { id: 'poor-quality', label: 'Poor quality', icon: '👎' },
+  { id: 'wrong-style', label: 'Wrong style', icon: '🎨' },
+  { id: 'doesnt-match', label: "Doesn't match prompt", icon: '❌' },
+  { id: 'too-similar', label: 'Too similar', icon: '👯' },
+  { id: 'wrong-composition', label: 'Bad composition', icon: '📐' },
+  { id: 'other', label: 'Other...', icon: '💭' },
+];
+
+let trashFeedbackElement: HTMLElement | null = null;
+let trashFeedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+let trashObserver: MutationObserver | null = null;
+let lastTrashedPrompt: string = '';
+
+/**
+ * Initialize trash/delete button observer
+ */
+export function initTrashObserver(): void {
+  if (trashObserver) return;
+
+  // Platform-specific selectors for trash/delete buttons
+  const trashSelectors: Record<string, string[]> = {
+    midjourney: [
+      'button[aria-label*="delete" i]',
+      'button[aria-label*="trash" i]',
+      'button[aria-label*="remove" i]',
+      '[class*="trash"]',
+      '[class*="delete"]',
+      'button[title*="delete" i]',
+      'button[title*="trash" i]',
+      // Midjourney specific
+      '[class*="DislikeButton"]',
+      '[class*="RemoveButton"]',
+    ],
+    dalle: [
+      'button[aria-label*="delete" i]',
+      '[class*="delete"]',
+    ],
+    leonardo: [
+      'button[aria-label*="delete" i]',
+      '[class*="trash"]',
+    ],
+  };
+
+  const selectors = trashSelectors[currentPlatform] || trashSelectors.midjourney;
+
+  // Use event delegation for better performance
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+
+    // Check if clicked element or its parents match trash selectors
+    for (const selector of selectors) {
+      const trashButton = target.closest(selector);
+      if (trashButton && !target.closest('[id^="refyn-"]')) {
+        handleTrashClick(e, trashButton as HTMLElement);
+        return;
+      }
+    }
+  }, true);
+
+  console.log('[Refyn] Trash observer initialized for:', currentPlatform);
+}
+
+/**
+ * Handle trash button click
+ */
+function handleTrashClick(_event: MouseEvent, trashButton: HTMLElement): void {
+  // Try to find the associated prompt or image
+  const imageContainer = trashButton.closest('[class*="image"], [class*="generation"], [class*="output"], [class*="result"]');
+  const promptElement = imageContainer?.querySelector('[class*="prompt"], [class*="description"]');
+
+  // Get the prompt from the tracked input or the container
+  lastTrashedPrompt = promptElement?.textContent || trackedInput ? getInputText(trackedInput!) : '';
+
+  // Show feedback popup near the trash button
+  const rect = trashButton.getBoundingClientRect();
+  showTrashFeedbackPopup(rect.left, rect.top);
+}
+
+/**
+ * Show trash feedback popup
+ */
+function showTrashFeedbackPopup(x: number, y: number): void {
+  hideTrashFeedbackPopup();
+
+  trashFeedbackElement = document.createElement('div');
+  trashFeedbackElement.id = 'refyn-trash-feedback';
+  trashFeedbackElement.className = 'refyn-trash-feedback';
+  trashFeedbackElement.innerHTML = `
+    <div class="refyn-trash-feedback-inner">
+      <div class="refyn-trash-feedback-header">
+        <span class="refyn-trash-feedback-title">Why are you removing this?</span>
+        <button class="refyn-trash-feedback-close" data-action="close">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="refyn-trash-feedback-options">
+        ${TRASH_FEEDBACK_PRESETS.map(preset => `
+          <button class="refyn-trash-feedback-btn" data-reason="${preset.id}">
+            <span class="refyn-trash-feedback-icon">${preset.icon}</span>
+            <span class="refyn-trash-feedback-label">${preset.label}</span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="refyn-trash-feedback-custom" id="refyn-trash-custom" style="display: none;">
+        <input type="text" class="refyn-trash-feedback-input" placeholder="Tell us more..." maxlength="100">
+        <button class="refyn-trash-feedback-submit" data-action="submit-custom">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+      <div class="refyn-trash-feedback-skip">
+        <button class="refyn-trash-feedback-skip-btn" data-action="skip">Skip feedback</button>
+      </div>
+    </div>
+  `;
+
+  // Position popup
+  const popupWidth = 260;
+  const popupHeight = 280;
+  const xPos = Math.max(10, Math.min(x - popupWidth / 2, window.innerWidth - popupWidth - 10));
+  const yPos = y > popupHeight + 20 ? y - popupHeight - 10 : y + 30;
+
+  trashFeedbackElement.style.cssText = `
+    position: fixed;
+    left: ${xPos}px;
+    top: ${yPos}px;
+    z-index: 2147483647;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  `;
+
+  // Add event listeners
+  trashFeedbackElement.querySelectorAll('.refyn-trash-feedback-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const reason = (btn as HTMLElement).dataset.reason;
+
+      if (reason === 'other') {
+        // Show custom input
+        const customSection = trashFeedbackElement?.querySelector('#refyn-trash-custom') as HTMLElement;
+        if (customSection) {
+          customSection.style.display = 'flex';
+          const input = customSection.querySelector('input');
+          input?.focus();
+        }
+        // Highlight the "Other" button
+        btn.classList.add('active');
+      } else {
+        // Submit preset feedback
+        submitTrashFeedback(reason || 'unknown');
+      }
+    });
+  });
+
+  // Close button
+  trashFeedbackElement.querySelector('[data-action="close"]')?.addEventListener('click', () => {
+    hideTrashFeedbackPopup();
+  });
+
+  // Skip button
+  trashFeedbackElement.querySelector('[data-action="skip"]')?.addEventListener('click', () => {
+    submitTrashFeedback('skipped');
+  });
+
+  // Custom submit
+  trashFeedbackElement.querySelector('[data-action="submit-custom"]')?.addEventListener('click', () => {
+    const input = trashFeedbackElement?.querySelector('.refyn-trash-feedback-input') as HTMLInputElement;
+    submitTrashFeedback('custom', input?.value || '');
+  });
+
+  // Enter key on custom input
+  trashFeedbackElement.querySelector('.refyn-trash-feedback-input')?.addEventListener('keydown', (e) => {
+    if ((e as KeyboardEvent).key === 'Enter') {
+      const input = e.target as HTMLInputElement;
+      submitTrashFeedback('custom', input.value || '');
+    }
+  });
+
+  document.body.appendChild(trashFeedbackElement);
+
+  // Animate in
+  requestAnimationFrame(() => {
+    trashFeedbackElement?.classList.add('refyn-trash-feedback-visible');
+  });
+
+  // Auto-dismiss after 15 seconds
+  trashFeedbackTimeout = setTimeout(() => {
+    hideTrashFeedbackPopup();
+  }, 15000);
+}
+
+/**
+ * Submit trash feedback
+ */
+async function submitTrashFeedback(reason: string, customText?: string): Promise<void> {
+  try {
+    // Record the feedback
+    const { recordTrashFeedback } = await import('@/lib/deepLearning');
+    await recordTrashFeedback(
+      lastTrashedPrompt,
+      currentPlatform,
+      reason,
+      customText
+    );
+
+    // Show confirmation
+    flashLearningIndicator(`Noted: ${reason === 'skipped' ? 'Skipped' : reason.replace('-', ' ')}`);
+
+    console.log('[Refyn] Trash feedback recorded:', { reason, customText, prompt: lastTrashedPrompt.substring(0, 50) });
+  } catch (error) {
+    console.error('[Refyn] Error recording trash feedback:', error);
+  }
+
+  hideTrashFeedbackPopup();
+}
+
+/**
+ * Hide trash feedback popup
+ */
+function hideTrashFeedbackPopup(): void {
+  if (trashFeedbackTimeout) {
+    clearTimeout(trashFeedbackTimeout);
+    trashFeedbackTimeout = null;
+  }
+
+  if (trashFeedbackElement) {
+    trashFeedbackElement.classList.remove('refyn-trash-feedback-visible');
+    trashFeedbackElement.classList.add('refyn-trash-feedback-fade');
+    setTimeout(() => {
+      trashFeedbackElement?.remove();
+      trashFeedbackElement = null;
+    }, 200);
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Star, History, ExternalLink, Download, Upload, RefreshCw } from 'lucide-react';
+import { Star, History, ExternalLink, Download, Upload, RefreshCw, PanelRightOpen } from 'lucide-react';
 import { Header } from './components/Header';
 import { PlatformSelector } from './components/PlatformSelector';
 import { PromptInput } from './components/PromptInput';
@@ -18,10 +18,24 @@ import {
   removeSavedPrompt,
   getTasteProfile,
 } from '@/lib/storage';
-import { STORAGE_KEYS } from '@/shared/constants';
+import { STORAGE_KEYS, PLATFORMS } from '@/shared/constants';
+import { getPresetsForCategory } from '@/shared/presets';
+import type { StylePreset } from '@/shared/types';
 import type { Platform, OptimizationMode, GenomeTag, PromptRecord } from '@/shared/types';
 
 type TabType = 'refyn' | 'history' | 'saved';
+
+/**
+ * Strip --weird parameter from Midjourney prompts for moodboard compatibility
+ */
+function stripWeirdParameter(prompt: string): string {
+  return prompt
+    .replace(/\s*--weird\s*\d+/gi, '')
+    .replace(/\s*--w\s+\d+/gi, '')
+    .replace(/\s*--w\d+/gi, '')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
 
 const App: React.FC = () => {
   // State
@@ -40,11 +54,31 @@ const App: React.FC = () => {
   const [saved, setSaved] = useState<PromptRecord[]>([]);
   const [currentTabId, setCurrentTabId] = useState<number | null>(null);
   const [canInsert, setCanInsert] = useState(false);
+  const [isMoodboardMode, setIsMoodboardMode] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [availablePresets, setAvailablePresets] = useState<StylePreset[]>([]);
 
   // Initialize
   useEffect(() => {
     initializeApp();
   }, []);
+
+  // Update presets when platform changes
+  useEffect(() => {
+    const platformInfo = PLATFORMS[platform] || PLATFORMS.unknown;
+    const presets = getPresetsForCategory(platformInfo.category);
+    setAvailablePresets(presets);
+
+    // Load saved preset
+    chrome.storage.local.get(['refyn-last-preset']).then((result) => {
+      const savedPreset = result['refyn-last-preset'];
+      if (savedPreset && presets.some(p => p.id === savedPreset)) {
+        setSelectedPreset(savedPreset);
+      } else {
+        setSelectedPreset(null);
+      }
+    });
+  }, [platform]);
 
   const initializeApp = async () => {
     // Check for API key
@@ -59,15 +93,19 @@ const App: React.FC = () => {
     setSaved(savedData);
 
     // Load last used platform and mode from storage
-    const stored = await chrome.storage.local.get([STORAGE_KEYS.LAST_PLATFORM, STORAGE_KEYS.LAST_MODE]);
+    const stored = await chrome.storage.local.get([STORAGE_KEYS.LAST_PLATFORM, STORAGE_KEYS.LAST_MODE, 'refyn-moodboard-mode']);
     const lastPlatform = stored[STORAGE_KEYS.LAST_PLATFORM] as Platform | undefined;
     const lastMode = stored[STORAGE_KEYS.LAST_MODE] as OptimizationMode | undefined;
+    const moodboardMode = stored['refyn-moodboard-mode'] as boolean | undefined;
 
     if (lastPlatform) {
       setPlatform(lastPlatform);
     }
     if (lastMode) {
       setMode(lastMode);
+    }
+    if (moodboardMode) {
+      setIsMoodboardMode(moodboardMode);
     }
 
     // Detect current platform and auto-grab prompt
@@ -129,13 +167,19 @@ const App: React.FC = () => {
           platform,
           mode,
           tasteProfile,
+          presetId: selectedPreset,
         },
       });
 
       console.log('[Refyn App] Response received:', response);
 
       if (response.success && response.data) {
-        setOutputPrompt(response.data.optimizedPrompt);
+        // Apply moodboard stripping if enabled for Midjourney
+        let finalPrompt = response.data.optimizedPrompt;
+        if (isMoodboardMode && platform === 'midjourney') {
+          finalPrompt = stripWeirdParameter(finalPrompt);
+        }
+        setOutputPrompt(finalPrompt);
         setGenomeTags(response.data.genomeTags || []);
 
         // Add to history
@@ -152,7 +196,23 @@ const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [inputPrompt, platform, mode, loading, hasApiKey]);
+  }, [inputPrompt, platform, mode, loading, hasApiKey, isMoodboardMode, selectedPreset]);
+
+  // Handle moodboard toggle
+  const handleMoodboardToggle = (enabled: boolean) => {
+    setIsMoodboardMode(enabled);
+    chrome.storage.local.set({ 'refyn-moodboard-mode': enabled });
+  };
+
+  // Handle preset selection
+  const handlePresetChange = (presetId: string | null) => {
+    setSelectedPreset(presetId);
+    if (presetId) {
+      chrome.storage.local.set({ 'refyn-last-preset': presetId });
+    } else {
+      chrome.storage.local.remove('refyn-last-preset');
+    }
+  };
 
   // Handle save to library
   const handleSaveToLibrary = async () => {
@@ -218,6 +278,17 @@ const App: React.FC = () => {
   // Open dashboard
   const openDashboard = () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/index.html') });
+  };
+
+  // Open floating panel on page
+  const openFloatingPanel = async () => {
+    if (!currentTabId) return;
+    try {
+      await chrome.tabs.sendMessage(currentTabId, { type: 'FORCE_SHOW_FLOATING_PANEL' });
+      window.close(); // Close popup after opening panel
+    } catch {
+      setError('Could not open panel on this page. Content script may not be loaded.');
+    }
   };
 
   return (
@@ -289,6 +360,41 @@ const App: React.FC = () => {
               detectedPlatform={detectedPlatform}
             />
 
+            {/* Moodboard Toggle (Midjourney only) */}
+            {platform === 'midjourney' && (
+              <div className="flex items-center justify-between px-3 py-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-zinc-200">Moodboard Mode</span>
+                  <span className="text-xs text-zinc-500">(removes --weird)</span>
+                </div>
+                <button
+                  onClick={() => handleMoodboardToggle(!isMoodboardMode)}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${
+                    isMoodboardMode
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+                      : 'bg-zinc-600'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                      isMoodboardMode ? 'translate-x-5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
+
+            {/* Open Floating Panel Button */}
+            <button
+              onClick={openFloatingPanel}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-refyn-active/50 hover:bg-refyn-active border border-refyn-cyan/20 hover:border-refyn-cyan/40 rounded-lg text-sm text-zinc-200 hover:text-refyn-cyan transition-all group"
+              title="Open floating panel on page (Ctrl+Shift+E)"
+            >
+              <PanelRightOpen className="w-4 h-4 group-hover:text-refyn-cyan transition-colors" />
+              <span>Open Floating Panel on Page</span>
+              <span className="text-xs text-zinc-500 group-hover:text-zinc-400">(Ctrl+Shift+E)</span>
+            </button>
+
             {/* Input */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -319,6 +425,39 @@ const App: React.FC = () => {
               loading={loading}
               disabled={!inputPrompt.trim() || !hasApiKey}
             />
+
+            {/* Style Presets */}
+            {availablePresets.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-zinc-400">Style Preset</span>
+                  {selectedPreset && (
+                    <button
+                      onClick={() => handlePresetChange(null)}
+                      className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {availablePresets.slice(0, 8).map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => handlePresetChange(preset.id === selectedPreset ? null : preset.id)}
+                      className={`px-2.5 py-1 text-xs rounded-full transition-all ${
+                        selectedPreset === preset.id
+                          ? 'bg-refyn-cyan/20 text-refyn-cyan border border-refyn-cyan/40'
+                          : 'bg-refyn-active/50 text-zinc-400 border border-transparent hover:bg-refyn-active hover:text-zinc-200'
+                      }`}
+                      title={preset.description}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Output */}
             <PromptOutput
@@ -410,15 +549,17 @@ const App: React.FC = () => {
                 <p className="text-xs mt-1">Save your favorite prompts for quick access</p>
               </div>
             ) : (
-              saved.map((item) => (
-                <HistoryItem
-                  key={item.id}
-                  item={item}
-                  onSelect={handleSelectPrompt}
-                  onDelete={handleDeleteSaved}
-                  isSaved
-                />
-              ))
+              saved
+                .filter((item) => item && item.id && item.content) // Filter out invalid items
+                .map((item) => (
+                  <HistoryItem
+                    key={item.id}
+                    item={item}
+                    onSelect={handleSelectPrompt}
+                    onDelete={handleDeleteSaved}
+                    isSaved
+                  />
+                ))
             )}
           </div>
         )}

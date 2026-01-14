@@ -25,7 +25,39 @@ export interface PlatformInfo {
 }
 
 // Optimization Types
-export type OptimizationMode = 'enhance' | 'expand' | 'style' | 'params';
+export type OptimizationMode = 'enhance' | 'expand' | 'style' | 'params' | 'crazy';
+
+// Style Presets
+export interface StylePreset {
+  id: string;
+  name: string;
+  description: string;
+  category: PlatformCategory;
+  keywords: string[];
+  avoid: string[]; // Keywords to avoid when this style is selected
+  icon?: string;
+}
+
+// User Preferences & Learning
+export interface UserPreferences {
+  likedKeywords: Record<string, number>;    // keyword -> count of times liked
+  dislikedKeywords: Record<string, number>; // keyword -> count of times disliked
+  likedStyles: Record<string, number>;      // preset id -> count
+  dislikedStyles: Record<string, number>;   // preset id -> count
+  promptFeedback: PromptFeedback[];         // Recent feedback history
+  lastUpdated: string;
+}
+
+export interface PromptFeedback {
+  id: string;
+  originalPrompt: string;
+  refinedPrompt: string;
+  platform: Platform;
+  preset?: string;
+  feedback: 'like' | 'dislike' | 'used' | 'regenerate';
+  timestamp: string;
+  extractedKeywords: string[];
+}
 
 export interface OptimizeRequest {
   prompt: string;

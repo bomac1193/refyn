@@ -1,5 +1,6 @@
 import { detectPlatform, findPromptInputs, getInputText, setInputText } from './platformDetector';
-import { createFloatingPanel, showFloatingPanel, initTriggerIfNeeded } from './FloatingPanel';
+import { createFloatingPanel, showFloatingPanel, toggleFloatingPanel, forceShowFloatingPanel, initTrashObserver } from './FloatingPanel';
+import { initOutputObserver } from './OutputObserver';
 import type { Platform, OptimizationMode } from '@/shared/types';
 
 // State
@@ -24,22 +25,32 @@ function init() {
   // Observe for dynamic content
   observeDOM();
 
-  // Initialize floating panel on supported platforms
-  if (currentPlatform !== 'unknown') {
-    // Check if user previously closed the panel
-    const panelClosed = localStorage.getItem('refyn-panel-closed');
-    if (!panelClosed) {
-      // Delay to ensure page is fully loaded
-      setTimeout(() => {
-        createFloatingPanel();
-      }, 1500);
+  // Initialize floating panel on ALL pages (user can always toggle with Ctrl+Shift+E)
+  // Minimal delay for DOM to be ready
+  setTimeout(() => {
+    // Always try to create the panel - forceShowFloatingPanel handles unknown platforms
+    if (currentPlatform !== 'unknown') {
+      createFloatingPanel();
     } else {
-      // Show trigger button if panel was closed
-      setTimeout(() => {
-        initTriggerIfNeeded();
-      }, 1500);
+      // On unknown platforms, still create panel but use force method
+      forceShowFloatingPanel();
     }
+  }, 300);
+
+  // Initialize output observer for learning (delayed further to ensure page is ready)
+  if (currentPlatform !== 'unknown') {
+    setTimeout(() => {
+      initOutputObserver();
+    }, 1500);
+
+    // Initialize trash observer for feedback
+    setTimeout(() => {
+      initTrashObserver();
+    }, 2000);
   }
+
+  // Set up keyboard shortcut for panel toggle (Ctrl+Shift+E)
+  document.addEventListener('keydown', handlePanelShortcut);
 }
 
 // Handle messages
@@ -98,6 +109,17 @@ function handleMessage(
       sendResponse({ success: true });
       break;
 
+    case 'FORCE_SHOW_FLOATING_PANEL':
+      // Force show on any platform, even if unknown
+      forceShowFloatingPanel();
+      sendResponse({ success: true });
+      break;
+
+    case 'TOGGLE_FLOATING_PANEL':
+      toggleFloatingPanel();
+      sendResponse({ success: true });
+      break;
+
     default:
       sendResponse({ error: 'Unknown message type' });
   }
@@ -147,6 +169,16 @@ function handleMouseDown(event: MouseEvent) {
 function handleKeyDown(event: KeyboardEvent) {
   if (event.key === 'Escape' && floatingToolbar) {
     hideFloatingToolbar();
+  }
+}
+
+// Handle keyboard shortcut for floating panel (Ctrl+Shift+E)
+function handlePanelShortcut(event: KeyboardEvent) {
+  // Ctrl+Shift+E (E for Evolve/Enhance) - non-intrusive, memorable
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'e') {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleFloatingPanel();
   }
 }
 

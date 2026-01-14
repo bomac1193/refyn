@@ -1,4 +1,48 @@
 import type { Platform, OptimizationMode, TasteProfile } from '@/shared/types';
+import { getPresetById } from '@/shared/presets';
+import { getCrazyModeSystemPrompt } from '@/shared/platformSecrets';
+
+/**
+ * PROMPT MASTERY PRINCIPLES
+ *
+ * Based on research from:
+ * - Anthropic's Prompt Engineering & Context Engineering guides
+ * - DAIR.AI Prompt Engineering Guide
+ * - OpenAI Prompt Engineering docs
+ * - Practitioners: Riley Goodside, Simon Willison, Lilian Weng
+ *
+ * Core insight: "Prompting is persuasion, not programming"
+ */
+
+// Universal prompt optimization principles - injected into all prompts
+const PROMPT_MASTERY_GUIDE = `
+PROMPT OPTIMIZATION PHILOSOPHY:
+Prompting is persuasion, not programming. You are convincing an AI to see the user's vision clearly.
+
+QUALITY HIERARCHY (in order of impact):
+1. CLARITY - Be direct. Strip fluff. No ambiguity. Say exactly what you mean.
+2. SPECIFICITY - Replace vague words with concrete descriptors. "warm golden hour lighting" not "nice lighting"
+3. STRUCTURE - Use separators (commas, brackets, colons) to organize elements logically
+4. CONTEXT - Provide necessary background: subject, environment, mood, style
+5. ACTIONABILITY - Make the desired output crystal clear
+
+WORDS TO ELIMINATE (empty/vague):
+- Intensifiers: very, really, extremely, absolutely, quite
+- Vague qualifiers: nice, good, cool, beautiful, awesome, interesting
+- Undefined: something, somehow, stuff, things, etc
+
+WORDS TO ADD (specific/concrete):
+- Exact descriptors: "crimson" not "red", "weathered oak" not "wood"
+- Technical terms: aperture, composition, tempo, texture, layering
+- Numbers and ratios: dimensions, BPM, aspect ratios, percentages
+- Mood/atmosphere: melancholic, ethereal, gritty, serene, chaotic
+
+STRUCTURE PATTERNS:
+- Use [brackets] to group related concepts
+- Use commas to separate distinct elements
+- Front-load the most important elements
+- End with technical parameters/settings
+`;
 
 // Platform-specific system prompts
 export const MIDJOURNEY_SYSTEM_PROMPT = `You are Refyn, an expert prompt engineer specializing in Midjourney image generation.
@@ -236,9 +280,9 @@ GENERAL PRINCIPLES:
 
 Output only the optimized prompt with no explanation.`;
 
-// Get system prompt for a platform
+// Get system prompt for a platform (with mastery principles)
 export function getSystemPrompt(platform: Platform): string {
-  const prompts: Record<Platform, string> = {
+  const platformPrompts: Record<Platform, string> = {
     midjourney: MIDJOURNEY_SYSTEM_PROMPT,
     suno: SUNO_SYSTEM_PROMPT,
     udio: UDIO_SYSTEM_PROMPT,
@@ -254,16 +298,53 @@ export function getSystemPrompt(platform: Platform): string {
     unknown: GENERIC_SYSTEM_PROMPT,
   };
 
-  return prompts[platform] || GENERIC_SYSTEM_PROMPT;
+  const platformPrompt = platformPrompts[platform] || GENERIC_SYSTEM_PROMPT;
+
+  // Combine mastery guide with platform-specific prompt
+  return PROMPT_MASTERY_GUIDE + '\n' + platformPrompt;
 }
 
-// Build mode-specific instruction
+// Build mode-specific instruction - based on prompt engineering research
 export function getModeInstruction(mode: OptimizationMode): string {
   const instructions: Record<OptimizationMode, string> = {
-    enhance: `Enhance this prompt by improving clarity, adding specific details, and making it more effective while preserving the original intent.`,
-    expand: `Expand this prompt by adding more descriptive elements, additional context, and richer detail to create a more comprehensive prompt.`,
-    style: `Add artistic style references, mood descriptors, and aesthetic elements to this prompt to give it a distinctive creative direction.`,
-    params: `Add appropriate platform-specific parameters and technical settings to optimize this prompt for the target platform.`,
+    enhance: `ENHANCE MODE - Apply the prompt mastery principles:
+1. CLARITY: Remove vague words (nice, good, cool, very, really). Be direct.
+2. SPECIFICITY: Replace generic terms with precise descriptors. "Warm golden hour sunlight" not "nice lighting".
+3. STRUCTURE: Organize with commas and brackets. Group related concepts.
+4. Preserve the user's core vision while making every word count.
+
+Transform the prompt to be clearer, more specific, and better structured.`,
+
+    expand: `EXPAND MODE - Enrich with high-signal details:
+1. Add sensory depth: textures, materials, atmosphere, mood
+2. Include environmental context: setting, time of day, weather, scale
+3. Layer in style references: artistic movement, medium, technique
+4. Maintain clarity - each addition should serve the vision, not pad it.
+
+Expand thoughtfully. Quality over quantity. Every word earns its place.`,
+
+    style: `STYLE MODE - Inject distinctive aesthetic direction:
+1. Add artistic style references (cinematic, editorial, fine art, brutalist, ethereal)
+2. Include mood/atmosphere keywords that create emotional resonance
+3. Reference specific techniques, eras, or movements
+4. Create a cohesive aesthetic vision, not just a list of styles.
+
+Make the prompt artistically distinctive while honoring the original concept.`,
+
+    params: `PARAMS MODE - Add platform-specific technical controls:
+1. Include all relevant parameters for the target platform
+2. Add quality boosters appropriate to the platform
+3. Include aspect ratio, style settings, and modifiers
+4. Format parameters correctly for the platform syntax.
+
+Optimize for maximum technical control and output quality.`,
+
+    crazy: `CRAZY MODE - Unleash hidden platform potential:
+Use the secret platform triggers, magic symbols, experimental parameters, and formatting tricks provided.
+Push boundaries. Combine unexpected elements. Create something extraordinary.
+This is where you break conventions and unlock the model's hidden capabilities.
+
+Transform this into something wild, unexpected, and exceptional.`,
   };
 
   return instructions[mode];
@@ -309,14 +390,56 @@ export function buildTasteContext(profile: TasteProfile | undefined): string {
   return `\n\nUSER PREFERENCES:\n${parts.join('\n')}`;
 }
 
+// Build preset context from selected preset
+export function buildPresetContext(presetId: string | null): string {
+  if (!presetId) return '';
+
+  const preset = getPresetById(presetId);
+
+  if (!preset) return '';
+
+  const parts: string[] = [
+    `\n\nSTYLE PRESET: ${preset.name}`,
+    `Description: ${preset.description}`,
+    `MUST INCLUDE these keywords/elements: ${preset.keywords.join(', ')}`,
+  ];
+
+  if (preset.avoid && preset.avoid.length > 0) {
+    parts.push(`MUST AVOID these keywords/elements: ${preset.avoid.join(', ')}`);
+  }
+
+  return parts.join('\n');
+}
+
 // Build the full optimization prompt
 export function buildOptimizationPrompt(
   prompt: string,
   platform: Platform,
   mode: OptimizationMode,
-  tasteProfile?: TasteProfile
+  tasteProfile?: TasteProfile,
+  presetId?: string | null,
+  preferenceContext?: string
 ): { system: string; user: string } {
-  const systemPrompt = getSystemPrompt(platform) + buildTasteContext(tasteProfile);
+  let systemPrompt = getSystemPrompt(platform);
+
+  // For crazy mode, inject the platform secrets
+  if (mode === 'crazy') {
+    systemPrompt += '\n\n' + getCrazyModeSystemPrompt(platform);
+  }
+
+  // Add preset context if a preset is selected
+  if (presetId) {
+    systemPrompt += buildPresetContext(presetId);
+  }
+
+  // Add learned preference context
+  if (preferenceContext) {
+    systemPrompt += preferenceContext;
+  }
+
+  // Add taste profile context
+  systemPrompt += buildTasteContext(tasteProfile);
+
   const modeInstruction = getModeInstruction(mode);
 
   const userPrompt = `${modeInstruction}

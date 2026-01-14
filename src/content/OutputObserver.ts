@@ -1,0 +1,633 @@
+/**
+ * Output Observer - Monitors platform outputs and user actions
+ * Learns from user behavior (deletes, likes, dislikes) to improve suggestions
+ */
+
+import type { Platform } from '@/shared/types';
+import { detectPlatform } from './platformDetector';
+import { recordOutputFeedback, linkPromptToOutput } from '@/lib/deepLearning';
+import { flashLearningIndicator, showQuickRatePopup } from './FloatingPanel';
+
+interface OutputElement {
+  element: HTMLElement;
+  outputId: string;
+  prompt?: string;
+  platform: Platform;
+  timestamp: number;
+  rated: boolean;
+}
+
+// Track detected outputs
+const trackedOutputs: Map<string, OutputElement> = new Map();
+
+// Platform-specific selectors for outputs (images, videos, music)
+const OUTPUT_SELECTORS: Record<string, {
+  container: string;
+  output: string;
+  deleteBtn?: string;
+  likeBtn?: string;
+  dislikeBtn?: string;
+  promptSource?: string;
+}> = {
+  midjourney: {
+    container: '[class*="jobGrid"], [class*="gallery"]',
+    output: '[class*="job"], [class*="image-card"], img[src*="cdn.midjourney"]',
+    deleteBtn: '[class*="delete"], [aria-label*="delete"]',
+    likeBtn: '[class*="like"], [class*="upvote"]',
+    promptSource: '[class*="prompt"], [class*="description"]',
+  },
+  higgsfield: {
+    container: '[class*="gallery"], [class*="feed"], [class*="grid"]',
+    output: '[class*="video"], [class*="output"], video, [class*="generation"]',
+    deleteBtn: '[class*="delete"], button[aria-label*="delete"]',
+    likeBtn: '[class*="like"], [class*="heart"]',
+    dislikeBtn: '[class*="dislike"]',
+    promptSource: '[class*="prompt"], textarea',
+  },
+  runway: {
+    container: '[class*="gallery"], [class*="generations"]',
+    output: '[class*="generation"], video, [class*="result"]',
+    deleteBtn: '[class*="delete"], [class*="remove"]',
+    promptSource: '[class*="prompt"], input[type="text"]',
+  },
+  pika: {
+    container: '[class*="gallery"], [class*="results"]',
+    output: 'video, [class*="generation"], [class*="output"]',
+    deleteBtn: '[class*="delete"]',
+    promptSource: '[class*="prompt"], textarea',
+  },
+  leonardo: {
+    container: '[class*="gallery"], [class*="generations"]',
+    output: 'img[class*="generation"], [class*="image-result"]',
+    deleteBtn: '[class*="delete"]',
+    likeBtn: '[class*="like"]',
+    promptSource: 'textarea[class*="prompt"], [class*="prompt-text"]',
+  },
+  dalle: {
+    container: '[class*="result"], [class*="gallery"]',
+    output: 'img[class*="generated"], [class*="image-result"]',
+    promptSource: 'textarea, input[type="text"]',
+  },
+  'stable-diffusion': {
+    container: '[class*="gallery"], #gallery',
+    output: 'img[class*="output"], [class*="generated"]',
+    deleteBtn: '[class*="delete"]',
+    promptSource: 'textarea#prompt, [class*="prompt"]',
+  },
+  suno: {
+    container: '[class*="library"], [class*="creations"]',
+    output: '[class*="song"], [class*="track"], audio',
+    deleteBtn: '[class*="delete"]',
+    likeBtn: '[class*="like"], [class*="heart"]',
+    promptSource: '[class*="lyrics"], [class*="style"]',
+  },
+  udio: {
+    container: '[class*="library"], [class*="tracks"]',
+    output: '[class*="track"], [class*="song"], audio',
+    deleteBtn: '[class*="delete"]',
+    likeBtn: '[class*="like"]',
+    promptSource: '[class*="prompt"], [class*="tags"]',
+  },
+};
+
+let observerInstance: MutationObserver | null = null;
+let currentPlatform: Platform = 'unknown';
+let ratingOverlaysEnabled = true;
+
+/**
+ * Initialize the output observer for the current platform
+ */
+export function initOutputObserver(): void {
+  currentPlatform = detectPlatform();
+
+  if (currentPlatform === 'unknown') {
+    console.log('[Refyn Observer] Unknown platform, not observing');
+    return;
+  }
+
+  console.log('[Refyn Observer] Initializing for platform:', currentPlatform);
+
+  // Initial scan for outputs
+  scanForOutputs();
+
+  // Set up mutation observer for new outputs
+  setupMutationObserver();
+
+  // Set up action listeners (delete, like, dislike)
+  setupActionListeners();
+
+  console.log('[Refyn Observer] Initialization complete');
+}
+
+/**
+ * Scan the page for existing outputs
+ */
+function scanForOutputs(): void {
+  const config = OUTPUT_SELECTORS[currentPlatform];
+  if (!config) return;
+
+  // Find all output elements
+  const outputs = document.querySelectorAll(config.output);
+
+  outputs.forEach((output) => {
+    if (output instanceof HTMLElement) {
+      trackOutput(output);
+    }
+  });
+
+  console.log('[Refyn Observer] Found', trackedOutputs.size, 'outputs');
+}
+
+/**
+ * Track a single output element
+ */
+function trackOutput(element: HTMLElement): void {
+  // Generate unique ID for this output
+  const outputId = generateOutputId(element);
+
+  if (trackedOutputs.has(outputId)) return;
+
+  // Try to find associated prompt
+  const prompt = findPromptForOutput(element);
+
+  const outputData: OutputElement = {
+    element,
+    outputId,
+    prompt,
+    platform: currentPlatform,
+    timestamp: Date.now(),
+    rated: false,
+  };
+
+  trackedOutputs.set(outputId, outputData);
+
+  // Link prompt to output for learning
+  if (prompt) {
+    linkPromptToOutput(prompt, outputId, currentPlatform);
+  }
+
+  // Add rating overlay
+  if (ratingOverlaysEnabled) {
+    addRatingOverlay(element, outputId);
+  }
+
+  // Show quick-rate popup for new outputs (with slight delay to not spam)
+  if (prompt) {
+    setTimeout(() => {
+      showQuickRatePopup(outputId, prompt);
+    }, 500);
+  }
+
+  console.log('[Refyn Observer] Tracking new output:', outputId, prompt ? '(has prompt)' : '(no prompt)');
+}
+
+/**
+ * Generate unique ID for an output element
+ */
+function generateOutputId(element: HTMLElement): string {
+  // Try to find existing ID
+  if (element.id) return element.id;
+
+  // Try data attributes
+  const dataId = element.dataset.id || element.dataset.generationId || element.dataset.jobId;
+  if (dataId) return dataId;
+
+  // Try src for images
+  if (element instanceof HTMLImageElement && element.src) {
+    return btoa(element.src).substring(0, 20);
+  }
+
+  // Try src for videos
+  if (element instanceof HTMLVideoElement && element.src) {
+    return btoa(element.src).substring(0, 20);
+  }
+
+  // Generate from position and content
+  const rect = element.getBoundingClientRect();
+  return `output-${currentPlatform}-${rect.x}-${rect.y}-${Date.now()}`;
+}
+
+/**
+ * Find the prompt that generated an output
+ */
+function findPromptForOutput(element: HTMLElement): string | undefined {
+  const config = OUTPUT_SELECTORS[currentPlatform];
+  if (!config?.promptSource) return undefined;
+
+  // Look for prompt in the output's parent hierarchy
+  let parent = element.parentElement;
+  let depth = 0;
+  const maxDepth = 10;
+
+  while (parent && depth < maxDepth) {
+    const promptEl = parent.querySelector(config.promptSource);
+    if (promptEl) {
+      return promptEl.textContent?.trim() || (promptEl as HTMLInputElement).value?.trim();
+    }
+    parent = parent.parentElement;
+    depth++;
+  }
+
+  // Fallback: look for recent prompt in global storage
+  return getLastKnownPrompt();
+}
+
+/**
+ * Get the last known prompt from storage/state
+ */
+function getLastKnownPrompt(): string | undefined {
+  // Check localStorage for last refined prompt
+  const lastPrompt = localStorage.getItem('refyn-last-prompt');
+  if (lastPrompt) return lastPrompt;
+
+  // Check for any visible prompt input
+  const promptInputs = document.querySelectorAll('textarea, input[type="text"]');
+  for (const input of promptInputs) {
+    const value = (input as HTMLInputElement).value?.trim();
+    if (value && value.length > 10) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Set up mutation observer for detecting new outputs
+ */
+function setupMutationObserver(): void {
+  if (observerInstance) {
+    observerInstance.disconnect();
+  }
+
+  const config = OUTPUT_SELECTORS[currentPlatform];
+  if (!config) return;
+
+  observerInstance = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type === 'childList') {
+        mutation.addedNodes.forEach((node) => {
+          if (node instanceof HTMLElement) {
+            // Check if this node is an output
+            if (node.matches(config.output)) {
+              trackOutput(node);
+            }
+            // Check children for outputs
+            const childOutputs = node.querySelectorAll(config.output);
+            childOutputs.forEach((output) => {
+              if (output instanceof HTMLElement) {
+                trackOutput(output);
+              }
+            });
+          }
+        });
+
+        // Handle removed outputs (possible delete action)
+        mutation.removedNodes.forEach((node) => {
+          if (node instanceof HTMLElement) {
+            handlePotentialDelete(node);
+          }
+        });
+      }
+    }
+  });
+
+  observerInstance.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+/**
+ * Set up listeners for platform action buttons (like, dislike, delete)
+ */
+function setupActionListeners(): void {
+  const config = OUTPUT_SELECTORS[currentPlatform];
+  if (!config) return;
+
+  // Use event delegation for efficiency
+  document.body.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+
+    // Check for delete button clicks
+    if (config.deleteBtn && target.closest(config.deleteBtn)) {
+      const output = findOutputForAction(target);
+      if (output) {
+        handleDeleteAction(output);
+      }
+    }
+
+    // Check for like button clicks
+    if (config.likeBtn && target.closest(config.likeBtn)) {
+      const output = findOutputForAction(target);
+      if (output) {
+        handleLikeAction(output);
+      }
+    }
+
+    // Check for dislike button clicks
+    if (config.dislikeBtn && target.closest(config.dislikeBtn)) {
+      const output = findOutputForAction(target);
+      if (output) {
+        handleDislikeAction(output);
+      }
+    }
+  }, true);
+}
+
+/**
+ * Find the tracked output for an action button
+ */
+function findOutputForAction(actionButton: HTMLElement): OutputElement | undefined {
+  const config = OUTPUT_SELECTORS[currentPlatform];
+  if (!config) return undefined;
+
+  // Walk up the DOM to find the output container
+  let parent = actionButton.parentElement;
+  let depth = 0;
+  const maxDepth = 15;
+
+  while (parent && depth < maxDepth) {
+    // Check if this matches our output selector
+    if (parent.matches(config.output)) {
+      const outputId = generateOutputId(parent);
+      return trackedOutputs.get(outputId);
+    }
+
+    // Check children
+    const output = parent.querySelector(config.output);
+    if (output instanceof HTMLElement) {
+      const outputId = generateOutputId(output);
+      return trackedOutputs.get(outputId);
+    }
+
+    parent = parent.parentElement;
+    depth++;
+  }
+
+  return undefined;
+}
+
+/**
+ * Handle delete action - learn to avoid similar prompts
+ */
+async function handleDeleteAction(output: OutputElement): Promise<void> {
+  console.log('[Refyn Observer] Delete detected for:', output.outputId);
+
+  if (output.prompt) {
+    // Extract keywords and record as disliked
+    await recordOutputFeedback(
+      output.prompt,
+      output.outputId,
+      output.platform,
+      'delete'
+    );
+    flashLearningIndicator('Learning from deleted output');
+    showLearningToast('Learning from deleted output...');
+  }
+
+  // Remove from tracking
+  trackedOutputs.delete(output.outputId);
+}
+
+/**
+ * Handle potential delete (element removed from DOM)
+ */
+function handlePotentialDelete(element: HTMLElement): void {
+  const config = OUTPUT_SELECTORS[currentPlatform];
+  if (!config) return;
+
+  if (element.matches(config.output)) {
+    const outputId = generateOutputId(element);
+    const output = trackedOutputs.get(outputId);
+
+    if (output && !output.rated) {
+      // Element was removed without explicit rating - might be a delete
+      console.log('[Refyn Observer] Potential delete detected:', outputId);
+      handleDeleteAction(output);
+    }
+  }
+}
+
+/**
+ * Handle like action on platform
+ */
+async function handleLikeAction(output: OutputElement): Promise<void> {
+  console.log('[Refyn Observer] Like detected for:', output.outputId);
+
+  if (output.prompt) {
+    await recordOutputFeedback(
+      output.prompt,
+      output.outputId,
+      output.platform,
+      'like'
+    );
+    output.rated = true;
+    flashLearningIndicator('Preference saved!');
+    showLearningToast('Learning your preferences...');
+  }
+}
+
+/**
+ * Handle dislike action on platform
+ */
+async function handleDislikeAction(output: OutputElement): Promise<void> {
+  console.log('[Refyn Observer] Dislike detected for:', output.outputId);
+
+  if (output.prompt) {
+    await recordOutputFeedback(
+      output.prompt,
+      output.outputId,
+      output.platform,
+      'dislike'
+    );
+    output.rated = true;
+    flashLearningIndicator('Will avoid similar');
+    showLearningToast('Noted - will avoid similar outputs');
+  }
+}
+
+/**
+ * Add Refyn rating overlay to an output element
+ */
+function addRatingOverlay(element: HTMLElement, outputId: string): void {
+  // Check if overlay already exists
+  if (element.querySelector('.refyn-rating-overlay')) return;
+
+  // Create overlay container
+  const overlay = document.createElement('div');
+  overlay.className = 'refyn-rating-overlay';
+  overlay.innerHTML = `
+    <div class="refyn-rating-buttons">
+      <button class="refyn-rate-btn refyn-rate-like" data-action="like" data-output="${outputId}" title="I like this">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+        </svg>
+      </button>
+      <button class="refyn-rate-btn refyn-rate-dislike" data-action="dislike" data-output="${outputId}" title="I don't like this">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="refyn-rating-label">Rate with Refyn</div>
+  `;
+
+  // Position the overlay
+  const style = window.getComputedStyle(element);
+  if (style.position === 'static') {
+    element.style.position = 'relative';
+  }
+
+  // Add click handlers
+  overlay.querySelectorAll('.refyn-rate-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const action = (btn as HTMLElement).dataset.action;
+      const output = trackedOutputs.get(outputId);
+
+      if (output && action) {
+        if (action === 'like') {
+          await handleRefynLike(output, btn as HTMLElement);
+        } else if (action === 'dislike') {
+          await handleRefynDislike(output, btn as HTMLElement);
+        }
+      }
+    });
+  });
+
+  element.appendChild(overlay);
+}
+
+/**
+ * Handle like from Refyn overlay
+ */
+async function handleRefynLike(output: OutputElement, button: HTMLElement): Promise<void> {
+  if (output.prompt) {
+    await recordOutputFeedback(
+      output.prompt,
+      output.outputId,
+      output.platform,
+      'like'
+    );
+    output.rated = true;
+
+    // Visual feedback
+    button.classList.add('active');
+    const overlay = button.closest('.refyn-rating-overlay');
+    if (overlay) {
+      const label = overlay.querySelector('.refyn-rating-label');
+      if (label) {
+        label.textContent = 'Preference saved!';
+        label.classList.add('refyn-rated');
+      }
+    }
+
+    showLearningToast('Learning your preferences...');
+  }
+}
+
+/**
+ * Handle dislike from Refyn overlay
+ */
+async function handleRefynDislike(output: OutputElement, button: HTMLElement): Promise<void> {
+  if (output.prompt) {
+    await recordOutputFeedback(
+      output.prompt,
+      output.outputId,
+      output.platform,
+      'dislike'
+    );
+    output.rated = true;
+
+    // Visual feedback
+    button.classList.add('active');
+    const overlay = button.closest('.refyn-rating-overlay');
+    if (overlay) {
+      const label = overlay.querySelector('.refyn-rating-label');
+      if (label) {
+        label.textContent = 'Will avoid similar';
+        label.classList.add('refyn-rated');
+      }
+    }
+
+    showLearningToast('Noted - adjusting suggestions');
+  }
+}
+
+/**
+ * Show a toast notification about learning
+ */
+function showLearningToast(message: string): void {
+  // Remove existing toast
+  document.querySelector('.refyn-learning-toast')?.remove();
+
+  const toast = document.createElement('div');
+  toast.className = 'refyn-learning-toast';
+  toast.innerHTML = `
+    <div class="refyn-learning-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+    </div>
+    <span>${message}</span>
+  `;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('refyn-toast-fade');
+    setTimeout(() => toast.remove(), 300);
+  }, 2500);
+}
+
+/**
+ * Toggle rating overlays
+ */
+export function toggleRatingOverlays(enabled: boolean): void {
+  ratingOverlaysEnabled = enabled;
+
+  if (enabled) {
+    // Add overlays to all tracked outputs
+    trackedOutputs.forEach((output) => {
+      addRatingOverlay(output.element, output.outputId);
+    });
+  } else {
+    // Remove all overlays
+    document.querySelectorAll('.refyn-rating-overlay').forEach((el) => el.remove());
+  }
+}
+
+/**
+ * Clean up observer
+ */
+export function destroyOutputObserver(): void {
+  if (observerInstance) {
+    observerInstance.disconnect();
+    observerInstance = null;
+  }
+
+  // Remove all overlays
+  document.querySelectorAll('.refyn-rating-overlay').forEach((el) => el.remove());
+  document.querySelectorAll('.refyn-learning-toast').forEach((el) => el.remove());
+
+  trackedOutputs.clear();
+}
+
+/**
+ * Get statistics about tracked outputs
+ */
+export function getObserverStats(): { tracked: number; rated: number } {
+  let rated = 0;
+  trackedOutputs.forEach((output) => {
+    if (output.rated) rated++;
+  });
+
+  return {
+    tracked: trackedOutputs.size,
+    rated,
+  };
+}

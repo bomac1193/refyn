@@ -126,6 +126,8 @@ export const STORAGE_KEYS = {
   SETTINGS: 'refyn_settings',
   LAST_PLATFORM: 'refyn_last_platform',
   LAST_MODE: 'refyn_last_mode',
+  USER_PREFERENCES: 'refyn_user_preferences',
+  LAST_PRESET: 'refyn_last_preset',
 } as const;
 
 // UI Constants
@@ -151,5 +153,9 @@ export const MODE_LABELS: Record<string, { label: string; description: string }>
   params: {
     label: 'Params',
     description: 'Add platform-specific parameters',
+  },
+  crazy: {
+    label: 'Crazy',
+    description: 'Hidden platform tricks & magic triggers',
   },
 };

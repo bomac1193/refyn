@@ -56,6 +56,9 @@ export function detectPlatform(): Platform {
     'www.stability.ai': 'stable-diffusion',
     'higgsfield.ai': 'higgsfield',
     'www.higgsfield.ai': 'higgsfield',
+    'app.higgsfield.ai': 'higgsfield',
+    'create.higgsfield.ai': 'higgsfield',
+    'studio.higgsfield.ai': 'higgsfield',
     'claude.ai': 'claude',
     'www.claude.ai': 'claude',
     'replicate.com': () => detectReplicatePlatform(),
@@ -133,18 +136,33 @@ function detectReplicatePlatform(): Platform {
 }
 
 /**
+ * Check if element belongs to Refyn (should be excluded from detection)
+ */
+function isRefynElement(el: HTMLElement): boolean {
+  // Check if element or any ancestor has refyn ID or class
+  let current: HTMLElement | null = el;
+  while (current) {
+    if (current.id?.startsWith('refyn-') ||
+        current.className?.toString().includes('refyn-') ||
+        current.closest('[id^="refyn-"]')) {
+      return true;
+    }
+    current = current.parentElement;
+  }
+  return false;
+}
+
+/**
  * Find prompt input elements on the current page
  */
 export function findPromptInputs(): HTMLElement[] {
   console.log('[Refyn Detector] Searching for prompt inputs...');
 
-  const selectors = [
-    // Generic text inputs and textareas
-    'textarea[placeholder*="prompt" i]',
-    'textarea[placeholder*="describe" i]',
-    'textarea[placeholder*="imagine" i]',
-    'textarea[placeholder*="create" i]',
-    'input[placeholder*="prompt" i]',
+  // Platform-specific selectors (highest priority)
+  const platformSelectors = [
+    // Midjourney web
+    '#desktop_input_bar',
+    'textarea[id*="input_bar"]',
 
     // Discord (Midjourney)
     '[class*="textArea"] [class*="editor"]',
@@ -159,24 +177,33 @@ export function findPromptInputs(): HTMLElement[] {
     '[class*="prompt-input"]',
     'textarea[class*="prompt"]',
 
-    // Generic contenteditable
+    // Higgsfield
+    'textarea[placeholder*="describe" i]',
+    'textarea[placeholder*="prompt" i]',
+
+    // Runway
+    'textarea[placeholder*="describe" i]',
+  ];
+
+  // Generic selectors (lower priority)
+  const genericSelectors = [
+    'textarea[placeholder*="imagine" i]',
+    'textarea[placeholder*="create" i]',
+    'input[placeholder*="prompt" i]',
     '[contenteditable="true"]',
-
-    // Fallback to all textareas
     'textarea',
-
-    // Generic inputs
     'input[type="text"]',
   ];
 
   const inputs: HTMLElement[] = [];
   const seen = new Set<HTMLElement>();
 
-  for (const selector of selectors) {
+  // First try platform-specific selectors
+  for (const selector of platformSelectors) {
     try {
       const elements = document.querySelectorAll<HTMLElement>(selector);
       elements.forEach(el => {
-        if (!seen.has(el) && isVisibleElement(el)) {
+        if (!seen.has(el) && isVisibleElement(el) && !isRefynElement(el)) {
           seen.add(el);
           inputs.push(el);
           console.log('[Refyn Detector] Found input:', selector, el);
@@ -184,6 +211,24 @@ export function findPromptInputs(): HTMLElement[] {
       });
     } catch {
       // Invalid selector, skip
+    }
+  }
+
+  // If no platform-specific inputs found, try generic selectors
+  if (inputs.length === 0) {
+    for (const selector of genericSelectors) {
+      try {
+        const elements = document.querySelectorAll<HTMLElement>(selector);
+        elements.forEach(el => {
+          if (!seen.has(el) && isVisibleElement(el) && !isRefynElement(el)) {
+            seen.add(el);
+            inputs.push(el);
+            console.log('[Refyn Detector] Found input:', selector, el);
+          }
+        });
+      } catch {
+        // Invalid selector, skip
+      }
     }
   }
 
@@ -230,17 +275,55 @@ export function getInputText(element: HTMLElement): string {
 
 /**
  * Set text content for various input types
+ * Uses native setter to properly trigger React/Vue state updates
  */
 export function setInputText(element: HTMLElement, text: string): void {
   if (element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement) {
-    element.value = text;
-    element.dispatchEvent(new Event('input', { bubbles: true }));
+    // Focus the element first
+    element.focus();
+
+    // Use native setter to bypass React's synthetic event system
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+      'value'
+    )?.set;
+
+    if (nativeInputValueSetter) {
+      nativeInputValueSetter.call(element, text);
+    } else {
+      element.value = text;
+    }
+
+    // Dispatch multiple events to ensure framework picks up the change
+    element.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+
+    // Also dispatch keyboard events to simulate typing
+    element.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+    element.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+
+    console.log('[Refyn] Set text on textarea/input:', text.substring(0, 50));
     return;
   }
 
   if (element.isContentEditable) {
-    element.innerText = text;
+    element.focus();
+
+    // Clear existing content
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    // Insert new text
+    document.execCommand('insertText', false, text);
+
+    // Dispatch events
     element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+
+    console.log('[Refyn] Set text on contenteditable:', text.substring(0, 50));
     return;
   }
 
@@ -248,6 +331,7 @@ export function setInputText(element: HTMLElement, text: string): void {
   element.focus();
   document.execCommand('selectAll', false);
   document.execCommand('insertText', false, text);
+  console.log('[Refyn] Set text via execCommand:', text.substring(0, 50));
 }
 
 /**
@@ -255,7 +339,7 @@ export function setInputText(element: HTMLElement, text: string): void {
  */
 export function getPlatformInputSelector(platform: Platform): string | null {
   const selectors: Partial<Record<Platform, string>> = {
-    midjourney: '[class*="textArea"] [role="textbox"], [data-slate-editor="true"]',
+    midjourney: '#desktop_input_bar, textarea[id*="input_bar"], [class*="textArea"] [role="textbox"], [data-slate-editor="true"]',
     chatgpt: '#prompt-textarea, textarea[data-id="root"]',
     claude: '[contenteditable="true"][data-placeholder]',
     suno: 'textarea[class*="prompt"], textarea[placeholder*="describe"]',
@@ -264,7 +348,7 @@ export function getPlatformInputSelector(platform: Platform): string | null {
     leonardo: 'textarea[placeholder*="prompt"]',
     runway: 'textarea[placeholder*="describe"]',
     pika: 'textarea[placeholder*="describe"]',
-    higgsfield: 'textarea, [contenteditable="true"], input[type="text"]',
+    higgsfield: 'textarea[placeholder*="describe"], textarea[placeholder*="prompt"], textarea:not([id^="refyn-"]), [contenteditable="true"]:not([id^="refyn-"])',
   };
 
   return selectors[platform] || null;

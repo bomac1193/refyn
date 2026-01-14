@@ -1,0 +1,622 @@
+/**
+ * Deep Learning Module - Advanced preference learning from user behavior
+ * Extracts patterns from prompts and learns what works/doesn't work for the user
+ */
+
+import type { Platform, PlatformCategory } from '@/shared/types';
+import { PLATFORMS } from '@/shared/constants';
+
+// Storage keys
+const DEEP_PREFS_KEY = 'refyn_deep_preferences';
+const PROMPT_OUTPUTS_KEY = 'refyn_prompt_outputs';
+
+// Weight values for different feedback types
+const FEEDBACK_WEIGHTS = {
+  like: 2,
+  use: 1.5,
+  dislike: -2,
+  delete: -3,
+  regenerate: -1,
+};
+
+// Advanced keyword categories for extraction
+const KEYWORD_CATEGORIES = {
+  // Visual elements
+  lighting: [
+    'golden hour', 'blue hour', 'studio lighting', 'natural light', 'dramatic lighting',
+    'soft lighting', 'rim lighting', 'backlit', 'ambient', 'high contrast', 'low key',
+    'high key', 'neon', 'volumetric', 'cinematic lighting', 'moody lighting',
+  ],
+  color: [
+    'warm tones', 'cool tones', 'vibrant', 'muted', 'pastel', 'monochrome',
+    'black and white', 'saturated', 'desaturated', 'earthy', 'neon', 'grayscale',
+  ],
+  style: [
+    'photorealistic', 'cinematic', 'artistic', 'abstract', 'minimal', 'maximalist',
+    'surreal', 'vintage', 'retro', 'futuristic', 'gothic', 'ethereal', 'dreamy',
+    'gritty', 'clean', 'editorial', 'fine art', 'commercial', 'documentary',
+  ],
+  quality: [
+    'highly detailed', '8k', '4k', 'ultra hd', 'sharp focus', 'professional',
+    'masterpiece', 'best quality', 'award winning', 'museum quality',
+  ],
+  camera: [
+    '35mm', '50mm', '85mm', 'wide angle', 'telephoto', 'macro', 'fisheye',
+    'bokeh', 'depth of field', 'shallow dof', 'anamorphic', 'tilt shift',
+  ],
+  medium: [
+    'oil painting', 'watercolor', 'digital art', 'photograph', '3d render',
+    'illustration', 'concept art', 'pencil sketch', 'charcoal', 'acrylic',
+  ],
+  render: [
+    'unreal engine', 'octane render', 'blender', 'vray', 'cinema 4d',
+    'ray tracing', 'global illumination', 'subsurface scattering',
+  ],
+  composition: [
+    'rule of thirds', 'centered', 'symmetrical', 'asymmetrical', 'dynamic',
+    'close up', 'wide shot', 'medium shot', 'full body', 'portrait',
+  ],
+  mood: [
+    'peaceful', 'dramatic', 'intense', 'serene', 'melancholic', 'uplifting',
+    'mysterious', 'whimsical', 'powerful', 'gentle', 'energetic', 'calm',
+  ],
+  // Music elements
+  genre: [
+    'pop', 'rock', 'hip-hop', 'electronic', 'jazz', 'classical', 'r&b',
+    'folk', 'country', 'metal', 'indie', 'lo-fi', 'ambient', 'house',
+    'techno', 'trap', 'drill', 'soul', 'funk', 'blues', 'reggae',
+  ],
+  tempo: [
+    'slow', 'fast', 'upbeat', 'mid-tempo', 'ballad', 'uptempo', 'downtempo',
+  ],
+  instruments: [
+    'guitar', 'piano', 'synth', 'drums', '808s', 'strings', 'brass',
+    'bass', 'violin', 'saxophone', 'flute', 'beats', 'percussion',
+  ],
+  vocals: [
+    'male vocals', 'female vocals', 'falsetto', 'raspy', 'smooth',
+    'whispered', 'powerful', 'harmonies', 'auto-tune', 'a cappella',
+  ],
+  // Video elements
+  movement: [
+    'slow motion', 'timelapse', 'tracking shot', 'dolly', 'pan', 'zoom',
+    'crane shot', 'steadicam', 'handheld', 'static', 'orbital', 'dynamic',
+  ],
+};
+
+// Deep preferences structure
+export interface DeepPreferences {
+  // Keyword preferences by category
+  keywordScores: Record<string, Record<string, number>>;
+  // Platform-specific preferences
+  platformScores: Record<Platform, Record<string, number>>;
+  // Combination patterns (keywords that work well together)
+  successfulCombinations: string[][];
+  // Combinations to avoid
+  failedCombinations: string[][];
+  // Overall statistics
+  stats: {
+    totalLikes: number;
+    totalDislikes: number;
+    totalDeletes: number;
+    lastUpdated: string;
+  };
+  // Trash feedback tracking
+  trashReasons?: Record<string, number>;
+  // Reason-keyword associations
+  reasonKeywords?: Record<string, string[]>;
+  // Custom feedback entries
+  customFeedback?: Array<{
+    text: string;
+    prompt: string;
+    platform: Platform;
+    timestamp: number;
+  }>;
+}
+
+// Prompt-Output linking for tracking
+interface PromptOutputLink {
+  promptId: string;
+  prompt: string;
+  outputIds: string[];
+  platform: Platform;
+  extractedKeywords: Record<string, string[]>;
+  timestamp: number;
+  feedback?: 'like' | 'dislike' | 'delete' | 'use' | 'regenerate';
+}
+
+/**
+ * Get default deep preferences
+ */
+function getDefaultDeepPreferences(): DeepPreferences {
+  return {
+    keywordScores: {},
+    platformScores: {} as Record<Platform, Record<string, number>>,
+    successfulCombinations: [],
+    failedCombinations: [],
+    stats: {
+      totalLikes: 0,
+      totalDislikes: 0,
+      totalDeletes: 0,
+      lastUpdated: new Date().toISOString(),
+    },
+  };
+}
+
+/**
+ * Load deep preferences from storage
+ */
+export async function getDeepPreferences(): Promise<DeepPreferences> {
+  try {
+    const result = await chrome.storage.local.get(DEEP_PREFS_KEY);
+    return result[DEEP_PREFS_KEY] || getDefaultDeepPreferences();
+  } catch {
+    return getDefaultDeepPreferences();
+  }
+}
+
+/**
+ * Save deep preferences to storage
+ */
+export async function saveDeepPreferences(prefs: DeepPreferences): Promise<void> {
+  prefs.stats.lastUpdated = new Date().toISOString();
+  await chrome.storage.local.set({ [DEEP_PREFS_KEY]: prefs });
+}
+
+/**
+ * Extract keywords from a prompt with categorization
+ */
+export function extractKeywordsFromPrompt(prompt: string): Record<string, string[]> {
+  const lowerPrompt = prompt.toLowerCase();
+  const extracted: Record<string, string[]> = {};
+
+  for (const [category, keywords] of Object.entries(KEYWORD_CATEGORIES)) {
+    const found = keywords.filter((kw) => lowerPrompt.includes(kw.toLowerCase()));
+    if (found.length > 0) {
+      extracted[category] = found;
+    }
+  }
+
+  // Also extract any quoted terms
+  const quotedTerms = prompt.match(/"([^"]+)"/g);
+  if (quotedTerms) {
+    extracted['quoted'] = quotedTerms.map((t) => t.replace(/"/g, ''));
+  }
+
+  // Extract comma-separated terms that might be style keywords
+  const terms = prompt.split(',').map((t) => t.trim().toLowerCase());
+  const unknownTerms = terms.filter((t) => {
+    return t.length > 2 && t.length < 30 && !Object.values(KEYWORD_CATEGORIES).flat().includes(t);
+  });
+  if (unknownTerms.length > 0) {
+    extracted['custom'] = unknownTerms.slice(0, 10);
+  }
+
+  return extracted;
+}
+
+/**
+ * Link a prompt to an output for tracking
+ */
+export async function linkPromptToOutput(
+  prompt: string,
+  outputId: string,
+  platform: Platform
+): Promise<void> {
+  try {
+    const result = await chrome.storage.local.get(PROMPT_OUTPUTS_KEY);
+    const links: PromptOutputLink[] = result[PROMPT_OUTPUTS_KEY] || [];
+
+    // Check if prompt already exists
+    const promptId = generatePromptId(prompt);
+    const existingLink = links.find((l) => l.promptId === promptId);
+
+    if (existingLink) {
+      // Add output to existing link
+      if (!existingLink.outputIds.includes(outputId)) {
+        existingLink.outputIds.push(outputId);
+      }
+    } else {
+      // Create new link
+      const newLink: PromptOutputLink = {
+        promptId,
+        prompt,
+        outputIds: [outputId],
+        platform,
+        extractedKeywords: extractKeywordsFromPrompt(prompt),
+        timestamp: Date.now(),
+      };
+      links.unshift(newLink);
+    }
+
+    // Keep only last 200 links
+    const trimmedLinks = links.slice(0, 200);
+    await chrome.storage.local.set({ [PROMPT_OUTPUTS_KEY]: trimmedLinks });
+
+    // Store prompt for potential later retrieval
+    localStorage.setItem('refyn-last-prompt', prompt);
+  } catch (error) {
+    console.error('[Refyn Deep Learning] Error linking prompt:', error);
+  }
+}
+
+/**
+ * Generate a unique ID for a prompt
+ */
+function generatePromptId(prompt: string): string {
+  const normalized = prompt.toLowerCase().trim().replace(/\s+/g, ' ');
+  return btoa(normalized).substring(0, 30);
+}
+
+/**
+ * Record feedback for an output and learn from it
+ */
+export async function recordOutputFeedback(
+  prompt: string,
+  _outputId: string, // Used for future reference/linking
+  platform: Platform,
+  feedback: 'like' | 'dislike' | 'delete' | 'use' | 'regenerate'
+): Promise<void> {
+  console.log('[Refyn Deep Learning] Recording feedback:', { feedback, platform, promptLength: prompt.length });
+
+  const prefs = await getDeepPreferences();
+  const weight = FEEDBACK_WEIGHTS[feedback];
+  const keywords = extractKeywordsFromPrompt(prompt);
+
+  // Update keyword scores by category
+  for (const [category, kws] of Object.entries(keywords)) {
+    if (!prefs.keywordScores[category]) {
+      prefs.keywordScores[category] = {};
+    }
+
+    for (const kw of kws) {
+      const currentScore = prefs.keywordScores[category][kw] || 0;
+      prefs.keywordScores[category][kw] = currentScore + weight;
+
+      // Clamp scores between -10 and 10
+      prefs.keywordScores[category][kw] = Math.max(-10, Math.min(10, prefs.keywordScores[category][kw]));
+    }
+  }
+
+  // Update platform-specific scores
+  if (!prefs.platformScores[platform]) {
+    prefs.platformScores[platform] = {};
+  }
+
+  const allKeywords = Object.values(keywords).flat();
+  for (const kw of allKeywords) {
+    const currentScore = prefs.platformScores[platform][kw] || 0;
+    prefs.platformScores[platform][kw] = currentScore + weight;
+  }
+
+  // Track successful/failed combinations
+  if (allKeywords.length >= 2) {
+    const combination = allKeywords.slice(0, 5).sort();
+
+    if (weight > 0) {
+      // Successful combination
+      if (!prefs.successfulCombinations.find((c) => JSON.stringify(c) === JSON.stringify(combination))) {
+        prefs.successfulCombinations.push(combination);
+        // Keep only last 50
+        prefs.successfulCombinations = prefs.successfulCombinations.slice(-50);
+      }
+    } else if (weight < -1) {
+      // Failed combination
+      if (!prefs.failedCombinations.find((c) => JSON.stringify(c) === JSON.stringify(combination))) {
+        prefs.failedCombinations.push(combination);
+        // Keep only last 50
+        prefs.failedCombinations = prefs.failedCombinations.slice(-50);
+      }
+    }
+  }
+
+  // Update stats
+  if (feedback === 'like' || feedback === 'use') {
+    prefs.stats.totalLikes++;
+  } else if (feedback === 'dislike' || feedback === 'regenerate') {
+    prefs.stats.totalDislikes++;
+  } else if (feedback === 'delete') {
+    prefs.stats.totalDeletes++;
+  }
+
+  await saveDeepPreferences(prefs);
+
+  // Also update the simpler preferences system
+  try {
+    const { recordFeedback } = await import('./preferences');
+    // Map feedback types to what preferences.ts accepts
+    let simpleFeedback: 'like' | 'dislike' | 'used' | 'regenerate';
+    if (feedback === 'use') {
+      simpleFeedback = 'used';
+    } else if (feedback === 'delete') {
+      simpleFeedback = 'dislike'; // Treat delete as strong dislike
+    } else {
+      simpleFeedback = feedback;
+    }
+    await recordFeedback(prompt, prompt, platform, simpleFeedback);
+  } catch (error) {
+    console.log('[Refyn Deep Learning] Could not update preferences:', error);
+  }
+
+  console.log('[Refyn Deep Learning] Preferences updated');
+}
+
+/**
+ * Record trash/delete feedback with reason
+ * This helps learn why certain outputs fail
+ */
+export async function recordTrashFeedback(
+  prompt: string,
+  platform: Platform,
+  reason: string,
+  customText?: string
+): Promise<void> {
+  console.log('[Refyn Deep Learning] Recording trash feedback:', { reason, platform, customText });
+
+  const prefs = await getDeepPreferences();
+  const keywords = extractKeywordsFromPrompt(prompt);
+
+  // More negative weight for trash with reason
+  const weight = reason === 'skipped' ? -1 : -2.5;
+
+  // Update keyword scores
+  const allKeywords = Object.values(keywords).flat();
+  for (const kw of allKeywords) {
+    for (const [category, kws] of Object.entries(keywords)) {
+      if (kws.includes(kw)) {
+        if (!prefs.keywordScores[category]) {
+          prefs.keywordScores[category] = {};
+        }
+        const currentScore = prefs.keywordScores[category][kw] || 0;
+        prefs.keywordScores[category][kw] = Math.max(-10, Math.min(10, currentScore + weight));
+      }
+    }
+  }
+
+  // Store the reason for future analysis
+  if (!prefs.trashReasons) {
+    prefs.trashReasons = {};
+  }
+  if (!prefs.trashReasons[reason]) {
+    prefs.trashReasons[reason] = 0;
+  }
+  prefs.trashReasons[reason]++;
+
+  // If specific reason, extract patterns
+  if (reason !== 'skipped' && reason !== 'other') {
+    // Store reason-keyword associations for smarter learning
+    if (!prefs.reasonKeywords) {
+      prefs.reasonKeywords = {};
+    }
+    if (!prefs.reasonKeywords[reason]) {
+      prefs.reasonKeywords[reason] = [];
+    }
+
+    // Associate keywords with this reason
+    for (const kw of allKeywords.slice(0, 5)) {
+      if (!prefs.reasonKeywords[reason].includes(kw)) {
+        prefs.reasonKeywords[reason].push(kw);
+      }
+    }
+    // Keep only last 20 per reason
+    prefs.reasonKeywords[reason] = prefs.reasonKeywords[reason].slice(-20);
+  }
+
+  // Store custom text for analysis
+  if (customText && customText.trim()) {
+    if (!prefs.customFeedback) {
+      prefs.customFeedback = [];
+    }
+    prefs.customFeedback.push({
+      text: customText.trim(),
+      prompt: prompt.substring(0, 100),
+      platform,
+      timestamp: Date.now(),
+    });
+    // Keep only last 50
+    prefs.customFeedback = prefs.customFeedback.slice(-50);
+  }
+
+  // Update stats
+  prefs.stats.totalDeletes++;
+
+  await saveDeepPreferences(prefs);
+  console.log('[Refyn Deep Learning] Trash feedback recorded');
+}
+
+/**
+ * Get keywords to suggest (high positive scores)
+ */
+export async function getSuggestedKeywords(
+  platform: Platform,
+  limit: number = 10
+): Promise<{ keyword: string; category: string; score: number }[]> {
+  const prefs = await getDeepPreferences();
+  const platformInfo = PLATFORMS[platform];
+  const suggestions: { keyword: string; category: string; score: number }[] = [];
+
+  // Combine global and platform-specific scores
+  for (const [category, keywords] of Object.entries(prefs.keywordScores)) {
+    for (const [keyword, score] of Object.entries(keywords)) {
+      if (score > 0) {
+        const platformBonus = prefs.platformScores[platform]?.[keyword] || 0;
+        const totalScore = score + platformBonus * 0.5;
+
+        // Filter by category relevance to platform
+        if (isRelevantCategory(category, platformInfo.category)) {
+          suggestions.push({ keyword, category, score: totalScore });
+        }
+      }
+    }
+  }
+
+  // Sort by score and return top N
+  return suggestions
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
+/**
+ * Get keywords to avoid (negative scores)
+ */
+export async function getKeywordsToAvoid(
+  platform: Platform,
+  limit: number = 10
+): Promise<{ keyword: string; category: string; score: number }[]> {
+  const prefs = await getDeepPreferences();
+  const platformInfo = PLATFORMS[platform];
+  const toAvoid: { keyword: string; category: string; score: number }[] = [];
+
+  for (const [category, keywords] of Object.entries(prefs.keywordScores)) {
+    for (const [keyword, score] of Object.entries(keywords)) {
+      if (score < -1) {
+        const platformPenalty = prefs.platformScores[platform]?.[keyword] || 0;
+        const totalScore = score + platformPenalty * 0.5;
+
+        if (isRelevantCategory(category, platformInfo.category)) {
+          toAvoid.push({ keyword, category, score: totalScore });
+        }
+      }
+    }
+  }
+
+  return toAvoid
+    .sort((a, b) => a.score - b.score)
+    .slice(0, limit);
+}
+
+/**
+ * Check if a keyword category is relevant to a platform category
+ */
+function isRelevantCategory(keywordCategory: string, platformCategory: PlatformCategory): boolean {
+  const imageCategories = ['lighting', 'color', 'style', 'quality', 'camera', 'medium', 'render', 'composition', 'mood'];
+  const musicCategories = ['genre', 'tempo', 'instruments', 'vocals', 'mood'];
+  const videoCategories = ['lighting', 'color', 'style', 'movement', 'mood', 'camera'];
+
+  switch (platformCategory) {
+    case 'image':
+      return imageCategories.includes(keywordCategory) || keywordCategory === 'custom' || keywordCategory === 'quoted';
+    case 'music':
+      return musicCategories.includes(keywordCategory) || keywordCategory === 'custom' || keywordCategory === 'quoted';
+    case 'video':
+      return videoCategories.includes(keywordCategory) || keywordCategory === 'custom' || keywordCategory === 'quoted';
+    default:
+      return true;
+  }
+}
+
+/**
+ * Generate a smart suggestion context for the AI
+ */
+export async function getSmartSuggestionContext(platform: Platform): Promise<string> {
+  const [suggested, avoid] = await Promise.all([
+    getSuggestedKeywords(platform, 8),
+    getKeywordsToAvoid(platform, 5),
+  ]);
+
+  const prefs = await getDeepPreferences();
+  const parts: string[] = [];
+
+  if (suggested.length > 0) {
+    const suggestedStr = suggested.map((s) => s.keyword).join(', ');
+    parts.push(`STRONGLY PREFER these based on user's taste: ${suggestedStr}`);
+  }
+
+  if (avoid.length > 0) {
+    const avoidStr = avoid.map((a) => a.keyword).join(', ');
+    parts.push(`AVOID these (user dislikes them): ${avoidStr}`);
+  }
+
+  // Add successful combination hints
+  if (prefs.successfulCombinations.length > 0) {
+    const bestCombos = prefs.successfulCombinations.slice(-3);
+    parts.push(`Successful keyword combinations: ${bestCombos.map((c) => c.join(' + ')).join('; ')}`);
+  }
+
+  if (parts.length === 0) {
+    return '';
+  }
+
+  return `\n\nDEEP USER PREFERENCES (learned from behavior):\n${parts.join('\n')}`;
+}
+
+/**
+ * Analyze a prompt and suggest improvements
+ */
+export async function analyzePromptWithPreferences(
+  prompt: string,
+  platform: Platform
+): Promise<{
+  warnings: string[];
+  suggestions: string[];
+  score: number;
+}> {
+  const keywords = extractKeywordsFromPrompt(prompt);
+  const [suggested, avoid] = await Promise.all([
+    getSuggestedKeywords(platform, 20),
+    getKeywordsToAvoid(platform, 20),
+  ]);
+
+  const allKeywords = Object.values(keywords).flat();
+  const warnings: string[] = [];
+  const suggestions: string[] = [];
+  let score = 50; // Start with neutral score
+
+  // Check for keywords to avoid
+  const avoidSet = new Set(avoid.map((a) => a.keyword));
+  for (const kw of allKeywords) {
+    if (avoidSet.has(kw)) {
+      warnings.push(`"${kw}" - you've disliked outputs with this before`);
+      score -= 10;
+    }
+  }
+
+  // Check for missing preferred keywords
+  const suggestedSet = new Set(suggested.map((s) => s.keyword));
+  const usedSuggested = allKeywords.filter((kw) => suggestedSet.has(kw));
+  const missingSuggested = suggested.filter((s) => !allKeywords.includes(s.keyword)).slice(0, 3);
+
+  if (usedSuggested.length > 0) {
+    score += usedSuggested.length * 5;
+  }
+
+  if (missingSuggested.length > 0) {
+    for (const s of missingSuggested) {
+      suggestions.push(`Consider adding "${s.keyword}" - you've liked outputs with this`);
+    }
+  }
+
+  // Clamp score
+  score = Math.max(0, Math.min(100, score));
+
+  return { warnings, suggestions, score };
+}
+
+/**
+ * Clear all deep preferences
+ */
+export async function clearDeepPreferences(): Promise<void> {
+  await chrome.storage.local.remove([DEEP_PREFS_KEY, PROMPT_OUTPUTS_KEY]);
+  console.log('[Refyn Deep Learning] All preferences cleared');
+}
+
+/**
+ * Export preferences for backup
+ */
+export async function exportPreferences(): Promise<string> {
+  const prefs = await getDeepPreferences();
+  return JSON.stringify(prefs, null, 2);
+}
+
+/**
+ * Import preferences from backup
+ */
+export async function importPreferences(json: string): Promise<boolean> {
+  try {
+    const prefs = JSON.parse(json) as DeepPreferences;
+    await saveDeepPreferences(prefs);
+    return true;
+  } catch {
+    return false;
+  }
+}

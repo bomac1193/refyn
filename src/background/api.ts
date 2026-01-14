@@ -45,9 +45,11 @@ export async function optimizePrompt(
   prompt: string,
   platform: Platform,
   mode: OptimizationMode,
-  tasteProfile?: TasteProfile
+  tasteProfile?: TasteProfile,
+  presetId?: string | null,
+  preferenceContext?: string
 ): Promise<OptimizeResponse> {
-  console.log('[Refyn API] Starting optimization:', { platform, mode, promptLength: prompt.length });
+  console.log('[Refyn API] Starting optimization:', { platform, mode, presetId, promptLength: prompt.length });
 
   const apiKey = await getApiKey();
   console.log('[Refyn API] API key retrieved:', apiKey ? `${apiKey.substring(0, 15)}...` : 'NOT FOUND');
@@ -61,7 +63,7 @@ export async function optimizePrompt(
   }
 
   try {
-    const { system, user } = buildOptimizationPrompt(prompt, platform, mode, tasteProfile);
+    const { system, user } = buildOptimizationPrompt(prompt, platform, mode, tasteProfile, presetId, preferenceContext);
     console.log('[Refyn API] Built prompt, making API call...');
 
     const messages: ClaudeMessage[] = [
