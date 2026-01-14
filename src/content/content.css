@@ -1,0 +1,776 @@
+/* Refyn Floating Toolbar Styles */
+
+#refyn-toolbar {
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#refyn-toolbar.refyn-toolbar-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.refyn-toolbar-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: rgba(18, 18, 20, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 20px rgba(0, 240, 255, 0.1);
+}
+
+.refyn-toolbar-logo {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.refyn-logo-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #00F0FF 0%, #A855F7 100%);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0A0A0C;
+}
+
+.refyn-toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 4px;
+}
+
+.refyn-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: #A1A1AA;
+}
+
+.refyn-toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #F4F4F5;
+}
+
+.refyn-toolbar-btn:active {
+  transform: scale(0.95);
+}
+
+.refyn-btn-primary {
+  background: linear-gradient(135deg, #00F0FF 0%, #00B8C4 100%);
+  color: #0A0A0C !important;
+  font-weight: 600;
+}
+
+.refyn-btn-primary:hover {
+  background: linear-gradient(135deg, #00F0FF 0%, #00D4E0 100%);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+}
+
+.refyn-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refyn-btn-close {
+  padding: 8px;
+  color: #52525B;
+}
+
+.refyn-btn-close:hover {
+  color: #A1A1AA;
+}
+
+.refyn-toolbar-arrow {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  background: rgba(18, 18, 20, 0.95);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  transform: translateX(-50%) rotate(45deg);
+  margin-top: -6px;
+}
+
+/* Spinner animation */
+.refyn-spinner {
+  animation: refyn-spin 1s linear infinite;
+}
+
+@keyframes refyn-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Toast animations */
+@keyframes refyn-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes refyn-toast-out {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+}
+
+/* Ensure toolbar is above everything */
+#refyn-toolbar,
+.refyn-toast {
+  z-index: 2147483647 !important;
+}
+
+/* =====================================================
+   FLOATING PANEL STYLES
+   ===================================================== */
+
+#refyn-floating-panel {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #F4F4F5;
+}
+
+#refyn-floating-panel * {
+  box-sizing: border-box;
+}
+
+.refyn-panel-container {
+  width: 360px;
+  background: rgba(10, 10, 12, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 240, 255, 0.1),
+    0 0 30px rgba(0, 240, 255, 0.05);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.refyn-panel-container.refyn-minimized {
+  width: auto;
+}
+
+/* Header */
+.refyn-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: rgba(18, 18, 20, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: grab;
+  user-select: none;
+}
+
+.refyn-panel-header:active {
+  cursor: grabbing;
+}
+
+.refyn-panel-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refyn-panel-logo .refyn-logo-icon {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #00F0FF 0%, #A855F7 100%);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0A0A0C;
+}
+
+.refyn-logo-text {
+  font-size: 15px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #00F0FF 0%, #A855F7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.refyn-panel-platform {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+}
+
+.refyn-platform-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.refyn-platform-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: #A1A1AA;
+}
+
+.refyn-panel-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.refyn-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #71717A;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-control-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #F4F4F5;
+}
+
+/* Body */
+.refyn-panel-body {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* =====================================================
+   LIVE SYNC BAR
+   ===================================================== */
+
+.refyn-sync-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(0, 240, 255, 0.05);
+  border: 1px solid rgba(0, 240, 255, 0.1);
+  border-radius: 10px;
+}
+
+.refyn-sync-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refyn-sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #52525B;
+  transition: all 0.2s ease;
+}
+
+.refyn-sync-dot.refyn-sync-active {
+  background: #00F0FF;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+  animation: refyn-sync-glow 2s ease-in-out infinite;
+}
+
+.refyn-sync-dot.refyn-sync-searching {
+  background: #FBBF24;
+  animation: refyn-sync-blink 1s ease-in-out infinite;
+}
+
+.refyn-sync-dot.refyn-sync-pulse {
+  animation: refyn-sync-pulse 0.5s ease-out;
+}
+
+@keyframes refyn-sync-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 240, 255, 0.6); }
+  50% { box-shadow: 0 0 12px rgba(0, 240, 255, 0.8); }
+}
+
+@keyframes refyn-sync-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes refyn-sync-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+
+.refyn-sync-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: #A1A1AA;
+}
+
+.refyn-sync-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #71717A;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-sync-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #A1A1AA;
+}
+
+.refyn-sync-toggle.active {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00F0FF;
+}
+
+.refyn-sync-toggle.active:hover {
+  background: rgba(0, 240, 255, 0.25);
+}
+
+/* Mode Selector */
+.refyn-mode-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 10px;
+  background: rgba(26, 26, 30, 0.8);
+  border-radius: 12px;
+}
+
+.refyn-mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #71717A;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #A1A1AA;
+}
+
+.refyn-mode-btn.active {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00F0FF;
+}
+
+/* Input Section */
+.refyn-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.refyn-input-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 500;
+  color: #71717A;
+}
+
+.refyn-input-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refyn-char-count {
+  font-size: 10px;
+  color: #52525B;
+  font-variant-numeric: tabular-nums;
+}
+
+.refyn-char-count.refyn-char-warning {
+  color: #FBBF24;
+}
+
+.refyn-grab-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #A1A1AA;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-grab-btn:hover {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00F0FF;
+}
+
+.refyn-textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(26, 26, 30, 0.6);
+  color: #F4F4F5;
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: none;
+  transition: all 0.2s ease;
+}
+
+.refyn-textarea:focus {
+  outline: none;
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.1);
+}
+
+.refyn-textarea::placeholder {
+  color: #52525B;
+}
+
+.refyn-textarea.refyn-input-synced {
+  border-color: rgba(0, 240, 255, 0.5);
+  box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.15);
+}
+
+/* Action Button */
+.refyn-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #00F0FF 0%, #00B8C4 100%);
+  color: #0A0A0C;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refyn-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 240, 255, 0.3);
+}
+
+.refyn-action-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.refyn-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refyn-btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(10, 10, 12, 0.3);
+  border-top-color: #0A0A0C;
+  border-radius: 50%;
+  animation: refyn-spin 0.8s linear infinite;
+}
+
+/* Output Section */
+.refyn-output-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.refyn-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 500;
+  color: #71717A;
+}
+
+.refyn-output-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.refyn-small-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #A1A1AA;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-small-btn:hover {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00F0FF;
+}
+
+.refyn-output-text {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(26, 26, 30, 0.6);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  color: #F4F4F5;
+  font-size: 13px;
+  line-height: 1.6;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+/* Loading State */
+.refyn-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  color: #A1A1AA;
+  font-size: 13px;
+}
+
+.refyn-loading .refyn-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(0, 240, 255, 0.2);
+  border-top-color: #00F0FF;
+  border-radius: 50%;
+}
+
+/* Error State */
+.refyn-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #FCA5A5;
+  font-size: 12px;
+}
+
+/* Toast */
+.refyn-panel-toast {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  animation: refyn-toast-in 0.2s ease;
+  z-index: 10;
+}
+
+.refyn-toast-success {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00F0FF;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+}
+
+.refyn-toast-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #FCA5A5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Scrollbar */
+#refyn-floating-panel ::-webkit-scrollbar {
+  width: 6px;
+}
+
+#refyn-floating-panel ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#refyn-floating-panel ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+#refyn-floating-panel ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Save Button Feedback */
+.refyn-small-btn.refyn-saved {
+  background: rgba(34, 197, 94, 0.2) !important;
+  color: #22C55E !important;
+}
+
+.refyn-small-btn.refyn-saved svg polygon {
+  fill: #22C55E;
+}
+
+/* =====================================================
+   TRIGGER BUTTON (Always visible when panel is closed)
+   ===================================================== */
+
+#refyn-trigger-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483646;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.refyn-trigger-inner {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  background: rgba(10, 10, 12, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 50px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(0, 240, 255, 0.15);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.refyn-trigger-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #00F0FF 0%, #A855F7 100%);
+  font-size: 18px;
+  font-weight: 700;
+  color: #0A0A0C;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.refyn-trigger-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #F4F4F5;
+  white-space: nowrap;
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover expansion */
+#refyn-trigger-btn:hover .refyn-trigger-inner,
+#refyn-trigger-btn.refyn-trigger-expanded .refyn-trigger-inner {
+  border-color: rgba(0, 240, 255, 0.5);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(0, 240, 255, 0.25);
+}
+
+#refyn-trigger-btn:hover .refyn-trigger-text,
+#refyn-trigger-btn.refyn-trigger-expanded .refyn-trigger-text {
+  width: 60px;
+  opacity: 1;
+  padding-right: 16px;
+  padding-left: 4px;
+}
+
+#refyn-trigger-btn:hover .refyn-trigger-icon,
+#refyn-trigger-btn.refyn-trigger-expanded .refyn-trigger-icon {
+  border-radius: 50%;
+}
+
+/* Pulse animation to draw attention */
+@keyframes refyn-trigger-pulse {
+  0%, 100% {
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 0 20px rgba(0, 240, 255, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 0 30px rgba(0, 240, 255, 0.35);
+  }
+}
+
+.refyn-trigger-inner {
+  animation: refyn-trigger-pulse 3s ease-in-out infinite;
+}
+
+#refyn-trigger-btn:hover .refyn-trigger-inner {
+  animation: none;
+}

@@ -1,0 +1,59 @@
+{
+  "manifest_version": 3,
+  "name": "Refyn - Evolve the Signal",
+  "version": "1.0.0",
+  "description": "Universal AI prompt optimization. The DNA beneath every prompt.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "clipboardWrite",
+    "contextMenus"
+  ],
+  "host_permissions": [
+    "https://www.midjourney.com/*",
+    "https://discord.com/*",
+    "https://suno.com/*",
+    "https://www.suno.ai/*",
+    "https://udio.com/*",
+    "https://www.udio.com/*",
+    "https://runwayml.com/*",
+    "https://pika.art/*",
+    "https://openai.com/*",
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://labs.openai.com/*",
+    "https://leonardo.ai/*",
+    "https://app.leonardo.ai/*",
+    "https://replicate.com/*",
+    "https://stability.ai/*",
+    "https://dreamstudio.ai/*",
+    "https://higgsfield.ai/*",
+    "https://claude.ai/*",
+    "https://api.anthropic.com/*"
+  ],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content.js"],
+      "css": ["content/content.css"]
+    }
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

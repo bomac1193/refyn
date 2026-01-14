@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Refyn Live Sync Test Page</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1a1a1a;
+      color: #f4f4f5;
+      padding: 40px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #00f0ff;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      color: #71717a;
+      margin-bottom: 30px;
+    }
+    .test-section {
+      background: #27272a;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .test-section h2 {
+      font-size: 16px;
+      margin-bottom: 16px;
+      color: #a1a1aa;
+    }
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 16px;
+      border: 2px solid #3f3f46;
+      border-radius: 8px;
+      background: #18181b;
+      color: #f4f4f5;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      transition: border-color 0.2s;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #00f0ff;
+    }
+    textarea::placeholder {
+      color: #52525b;
+    }
+    .contenteditable-box {
+      width: 100%;
+      min-height: 120px;
+      padding: 16px;
+      border: 2px solid #3f3f46;
+      border-radius: 8px;
+      background: #18181b;
+      color: #f4f4f5;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    .contenteditable-box:focus {
+      outline: none;
+      border-color: #00f0ff;
+    }
+    .contenteditable-box:empty:before {
+      content: attr(data-placeholder);
+      color: #52525b;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 16px;
+      border: 2px solid #3f3f46;
+      border-radius: 8px;
+      background: #18181b;
+      color: #f4f4f5;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #00f0ff;
+    }
+    .instructions {
+      background: #18181b;
+      border-left: 3px solid #00f0ff;
+      padding: 16px;
+      margin-bottom: 30px;
+      border-radius: 0 8px 8px 0;
+    }
+    .instructions h3 {
+      margin-top: 0;
+      color: #00f0ff;
+    }
+    .instructions ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .instructions li {
+      margin-bottom: 8px;
+      color: #a1a1aa;
+    }
+    .status {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #71717a;
+    }
+    .rapid-test {
+      margin-top: 16px;
+    }
+    .rapid-test button {
+      background: #00f0ff;
+      color: #0a0a0c;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 8px;
+      transition: opacity 0.2s;
+    }
+    .rapid-test button:hover {
+      opacity: 0.9;
+    }
+    .rapid-test button:active {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <h1>Refyn Live Sync Test Page</h1>
+  <p class="subtitle">Test the Grammarly-like live sync functionality</p>
+
+  <div class="instructions">
+    <h3>How to Test:</h3>
+    <ol>
+      <li>Load this page in Chrome with Refyn extension installed</li>
+      <li><strong>Important:</strong> Add <code>?refyn-test=true</code> to the URL to enable test mode</li>
+      <li>Or run this in console: <code>localStorage.setItem('refyn-test-mode', 'true')</code> and refresh</li>
+      <li>The floating panel should appear in the bottom-right</li>
+      <li>Type in any of the test inputs below</li>
+      <li>Watch the Refyn panel sync your text in real-time</li>
+      <li>The sync indicator should glow cyan when active</li>
+      <li>Use "Rapid Type Test" buttons to stress test debouncing</li>
+    </ol>
+  </div>
+
+  <!-- Test 1: Standard Textarea -->
+  <div class="test-section">
+    <h2>Test 1: Standard Textarea (like ChatGPT/Claude)</h2>
+    <textarea
+      id="test-textarea"
+      placeholder="Describe your image in detail... (This simulates ChatGPT/Claude input)"
+    ></textarea>
+    <div class="status">Characters: <span id="char-count-1">0</span></div>
+    <div class="rapid-test">
+      <button onclick="rapidType('test-textarea')">Rapid Type Test</button>
+      <button onclick="clearInput('test-textarea')">Clear</button>
+    </div>
+  </div>
+
+  <!-- Test 2: Contenteditable -->
+  <div class="test-section">
+    <h2>Test 2: ContentEditable (like Discord/Midjourney)</h2>
+    <div
+      id="test-contenteditable"
+      class="contenteditable-box"
+      contenteditable="true"
+      role="textbox"
+      data-placeholder="Type your Midjourney prompt here..."
+    ></div>
+    <div class="status">Characters: <span id="char-count-2">0</span></div>
+    <div class="rapid-test">
+      <button onclick="rapidTypeContentEditable('test-contenteditable')">Rapid Type Test</button>
+      <button onclick="clearContentEditable('test-contenteditable')">Clear</button>
+    </div>
+  </div>
+
+  <!-- Test 3: Input field -->
+  <div class="test-section">
+    <h2>Test 3: Input Field (prompt-style)</h2>
+    <input
+      type="text"
+      id="test-input"
+      placeholder="Create a prompt..."
+    >
+    <div class="status">Characters: <span id="char-count-3">0</span></div>
+    <div class="rapid-test">
+      <button onclick="rapidType('test-input')">Rapid Type Test</button>
+      <button onclick="clearInput('test-input')">Clear</button>
+    </div>
+  </div>
+
+  <!-- Test 4: Prompt Textarea -->
+  <div class="test-section">
+    <h2>Test 4: Prompt-specific Textarea</h2>
+    <textarea
+      id="prompt-textarea"
+      placeholder="Imagine a beautiful sunset over mountains..."
+    ></textarea>
+    <div class="status">Characters: <span id="char-count-4">0</span></div>
+    <div class="rapid-test">
+      <button onclick="rapidType('prompt-textarea')">Rapid Type Test</button>
+      <button onclick="clearInput('prompt-textarea')">Clear</button>
+    </div>
+  </div>
+
+  <script>
+    // Character counting
+    document.getElementById('test-textarea').addEventListener('input', function() {
+      document.getElementById('char-count-1').textContent = this.value.length;
+    });
+    document.getElementById('test-contenteditable').addEventListener('input', function() {
+      document.getElementById('char-count-2').textContent = this.innerText.length;
+    });
+    document.getElementById('test-input').addEventListener('input', function() {
+      document.getElementById('char-count-3').textContent = this.value.length;
+    });
+    document.getElementById('prompt-textarea').addEventListener('input', function() {
+      document.getElementById('char-count-4').textContent = this.value.length;
+    });
+
+    // Rapid typing test - simulates fast user input
+    function rapidType(elementId) {
+      const element = document.getElementById(elementId);
+      const testText = "A majestic dragon flying over a crystal castle at sunset, with golden rays piercing through purple clouds, highly detailed, cinematic lighting, 8k resolution, trending on artstation";
+      let index = 0;
+
+      element.value = '';
+      element.focus();
+
+      const interval = setInterval(() => {
+        if (index < testText.length) {
+          element.value += testText[index];
+          element.dispatchEvent(new Event('input', { bubbles: true }));
+          index++;
+        } else {
+          clearInterval(interval);
+        }
+      }, 20); // 20ms per character = very fast typing
+    }
+
+    function rapidTypeContentEditable(elementId) {
+      const element = document.getElementById(elementId);
+      const testText = "An ethereal fairy forest with bioluminescent mushrooms, floating wisps of light, ancient trees with glowing runes, mystical atmosphere, fantasy art style, volumetric fog";
+      let index = 0;
+
+      element.innerText = '';
+      element.focus();
+
+      const interval = setInterval(() => {
+        if (index < testText.length) {
+          element.innerText += testText[index];
+          element.dispatchEvent(new Event('input', { bubbles: true }));
+          index++;
+        } else {
+          clearInterval(interval);
+        }
+      }, 20);
+    }
+
+    function clearInput(elementId) {
+      const element = document.getElementById(elementId);
+      element.value = '';
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function clearContentEditable(elementId) {
+      const element = document.getElementById(elementId);
+      element.innerText = '';
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    // Log when page loads
+    console.log('[Test Page] Refyn Live Sync Test Page loaded');
+    console.log('[Test Page] Waiting for Refyn extension...');
+  </script>
+</body>
+</html>
