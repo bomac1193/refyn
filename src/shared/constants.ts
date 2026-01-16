@@ -128,7 +128,28 @@ export const STORAGE_KEYS = {
   LAST_MODE: 'refyn_last_mode',
   USER_PREFERENCES: 'refyn_user_preferences',
   LAST_PRESET: 'refyn_last_preset',
+
+  // CTAD Integration - Process Capture
+  CTAD_SETTINGS: 'refyn_ctad_settings',
+  CONTRIBUTOR_ID: 'refyn_contributor_id',
+  CONTRIBUTOR_STATS: 'refyn_contributor_stats',
+  CONTRIBUTION_CONSENT: 'refyn_contribution_consent',
+  CAPTURE_SESSION: 'refyn_capture_session',
+  PENDING_SUBMISSIONS: 'refyn_pending_submissions',
 } as const;
+
+// CTAD API Configuration
+export const CTAD_API_URL = 'http://localhost:3001/api/process-declaration';
+
+// Contributor Tier Thresholds
+export const TIER_THRESHOLDS = {
+  EXPLORER: { min: 0, max: 99 },
+  CURATOR: { min: 100, max: 499 },
+  TASTEMAKER: { min: 500, max: 1999 },
+  ORACLE: { min: 2000, max: Infinity },
+} as const;
+
+export type ContributorTier = 'explorer' | 'curator' | 'tastemaker' | 'oracle';
 
 // UI Constants
 export const POPUP_DIMENSIONS = {

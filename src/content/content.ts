@@ -47,11 +47,36 @@ function init() {
     setTimeout(() => {
       initTrashObserver();
     }, 2000);
+
+    // Start CTAD capture session for this platform
+    setTimeout(() => {
+      initCaptureSession();
+    }, 500);
   }
 
   // Set up keyboard shortcut for panel toggle (Ctrl+Shift+E)
   document.addEventListener('keydown', handlePanelShortcut);
 }
+
+// Initialize CTAD capture session
+async function initCaptureSession() {
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'START_CAPTURE_SESSION',
+      payload: { platform: currentPlatform },
+    });
+    console.log('[Refyn] CTAD capture session started');
+  } catch (error) {
+    console.error('[Refyn] Failed to start capture session:', error);
+  }
+}
+
+// End capture session when leaving page
+window.addEventListener('beforeunload', () => {
+  chrome.runtime.sendMessage({ type: 'END_CAPTURE_SESSION' }).catch(() => {
+    // Ignore errors on page unload
+  });
+});
 
 // Handle messages
 function handleMessage(
@@ -117,6 +142,18 @@ function handleMessage(
 
     case 'TOGGLE_FLOATING_PANEL':
       toggleFloatingPanel();
+      sendResponse({ success: true });
+      break;
+
+    // CTAD reward notification
+    case 'CTAD_REWARD_NOTIFICATION':
+      showRewardNotification(message.payload as { pointsEarned: number; tierChange?: { from: string; to: string } });
+      sendResponse({ success: true });
+      break;
+
+    // CTAD tier change notification
+    case 'CTAD_TIER_CHANGE':
+      showTierChangeNotification(message.payload as { from: string; to: string });
       sendResponse({ success: true });
       break;
 
@@ -347,6 +384,23 @@ async function optimizeAndInsert(text: string, mode: OptimizationMode) {
       // Copy to clipboard as backup
       await navigator.clipboard.writeText(response.data.optimizedPrompt);
 
+      // Log prompt version to CTAD capture session
+      try {
+        await chrome.runtime.sendMessage({
+          type: 'LOG_PROMPT_VERSION',
+          payload: {
+            content: response.data.optimizedPrompt,
+            mode,
+            metadata: {
+              originalPrompt: text,
+              platform: currentPlatform,
+            },
+          },
+        });
+      } catch (ctadError) {
+        console.error('[Refyn] Failed to log CTAD prompt version:', ctadError);
+      }
+
       showToast('Prompt refined and inserted!');
       hideFloatingToolbar();
     } else {
@@ -408,6 +462,127 @@ function observeDOM() {
     childList: true,
     subtree: true,
   });
+}
+
+// Show CTAD reward notification
+function showRewardNotification(reward: { pointsEarned: number; tierChange?: { from: string; to: string } }) {
+  const toast = document.createElement('div');
+  toast.className = 'refyn-reward-toast';
+  toast.innerHTML = `
+    <div class="refyn-reward-inner">
+      <span class="refyn-reward-icon">🎉</span>
+      <div class="refyn-reward-text">
+        <strong>+${reward.pointsEarned} taste points</strong>
+        <span class="refyn-reward-subtitle">Thanks for contributing!</span>
+      </div>
+    </div>
+  `;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #121214 0%, #1a1a1e 100%);
+    border: 1px solid #00F0FF33;
+    border-radius: 12px;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    color: #fff;
+    z-index: 2147483647;
+    animation: refyn-slide-in 0.3s ease;
+    box-shadow: 0 8px 32px rgba(0, 240, 255, 0.15);
+  `;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = 'refyn-slide-out 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+// Show CTAD tier change notification
+function showTierChangeNotification(tierChange: { from: string; to: string }) {
+  const tierEmojis: Record<string, string> = {
+    explorer: '🔍',
+    curator: '🎨',
+    tastemaker: '✨',
+    oracle: '👁️',
+  };
+
+  const toast = document.createElement('div');
+  toast.className = 'refyn-tier-toast';
+  toast.innerHTML = `
+    <div class="refyn-tier-inner">
+      <div class="refyn-tier-icon">${tierEmojis[tierChange.to] || '🏆'}</div>
+      <div class="refyn-tier-text">
+        <strong>Level Up!</strong>
+        <span>You're now a ${tierChange.to.charAt(0).toUpperCase() + tierChange.to.slice(1)}</span>
+      </div>
+    </div>
+  `;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 2px solid #a855f7;
+    border-radius: 16px;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    color: #fff;
+    z-index: 2147483647;
+    animation: refyn-tier-bounce 0.5s ease;
+    box-shadow: 0 8px 32px rgba(168, 85, 247, 0.3);
+  `;
+
+  document.body.appendChild(toast);
+
+  // Add confetti effect
+  createConfetti();
+
+  setTimeout(() => {
+    toast.style.animation = 'refyn-slide-out 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
+}
+
+// Simple confetti effect for tier changes
+function createConfetti() {
+  const colors = ['#00F0FF', '#a855f7', '#f59e0b', '#10b981'];
+  const container = document.createElement('div');
+  container.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2147483646;
+    overflow: hidden;
+  `;
+
+  for (let i = 0; i < 50; i++) {
+    const confetti = document.createElement('div');
+    confetti.style.cssText = `
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      left: ${Math.random() * 100}%;
+      top: -10px;
+      opacity: ${0.7 + Math.random() * 0.3};
+      transform: rotate(${Math.random() * 360}deg);
+      animation: refyn-confetti-fall ${2 + Math.random() * 2}s ease-out forwards;
+      animation-delay: ${Math.random() * 0.5}s;
+      border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+    `;
+    container.appendChild(confetti);
+  }
+
+  document.body.appendChild(container);
+  setTimeout(() => container.remove(), 5000);
 }
 
 // Initialize when DOM is ready

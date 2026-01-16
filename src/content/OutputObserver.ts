@@ -27,22 +27,29 @@ const OUTPUT_SELECTORS: Record<string, {
   deleteBtn?: string;
   likeBtn?: string;
   dislikeBtn?: string;
+  downloadBtn?: string;
+  saveBtn?: string;
   promptSource?: string;
 }> = {
   midjourney: {
-    container: '[class*="jobGrid"], [class*="gallery"]',
-    output: '[class*="job"], [class*="image-card"], img[src*="cdn.midjourney"]',
-    deleteBtn: '[class*="delete"], [aria-label*="delete"]',
-    likeBtn: '[class*="like"], [class*="upvote"]',
-    promptSource: '[class*="prompt"], [class*="description"]',
+    container: '[class*="jobGrid"], [class*="gallery"], [class*="feed"], [class*="grid"], [class*="ImageGrid"], [class*="JobList"]',
+    output: '[class*="job"], [class*="image-card"], img[src*="cdn.midjourney"], img[src*="mj-gallery"], [class*="JobCard"], [class*="ImageCard"], [data-testid*="image"], [class*="generation"], [class*="result-image"]',
+    deleteBtn: '[class*="delete" i], [aria-label*="delete" i], [aria-label*="trash" i], [class*="trash" i], [class*="remove" i], button[title*="delete" i], button[title*="remove" i], [data-testid*="delete"], [class*="DislikeButton"], [class*="RemoveButton"], svg[class*="trash"], svg[class*="delete"]',
+    likeBtn: '[class*="like" i], [class*="upvote" i], [class*="heart" i], [class*="favorite" i], [aria-label*="like" i], [aria-label*="upvote" i], [aria-label*="favorite" i], button[title*="like" i], [data-testid*="like"], [class*="LikeButton"], [class*="UpvoteButton"], svg[class*="heart"], svg[class*="like"], [class*="thumbs-up"], [class*="thumbsUp"]',
+    dislikeBtn: '[class*="dislike" i], [class*="downvote" i], [aria-label*="dislike" i], [class*="thumbs-down"], [class*="thumbsDown"]',
+    downloadBtn: '[class*="download" i], [aria-label*="download" i], button[title*="download" i]',
+    saveBtn: '[class*="save" i], [aria-label*="save" i], [class*="bookmark" i]',
+    promptSource: '[class*="prompt"], [class*="description"], [class*="caption"], [data-testid*="prompt"]',
   },
   higgsfield: {
-    container: '[class*="gallery"], [class*="feed"], [class*="grid"]',
-    output: '[class*="video"], [class*="output"], video, [class*="generation"]',
-    deleteBtn: '[class*="delete"], button[aria-label*="delete"]',
-    likeBtn: '[class*="like"], [class*="heart"]',
-    dislikeBtn: '[class*="dislike"]',
-    promptSource: '[class*="prompt"], textarea',
+    container: '[class*="gallery"], [class*="feed"], [class*="grid"], [class*="container"], [class*="results"], [class*="creations"], [class*="library"], [class*="workspace"]',
+    output: '[class*="video"], [class*="output"], video, [class*="generation"], [class*="card"], [class*="item"], [class*="creation"], [class*="result"], [class*="media"], [data-testid*="video"], [data-testid*="output"]',
+    deleteBtn: '[class*="delete" i], button[aria-label*="delete" i], [class*="trash" i], [class*="remove" i], button[title*="delete" i], svg[class*="trash"], svg[class*="delete"], [data-action="delete"], [data-testid*="delete"]',
+    likeBtn: '[class*="like" i], [class*="heart" i], [class*="favorite" i], [aria-label*="like" i], button[title*="like" i], svg[class*="heart"], [data-action="like"], [data-testid*="like"], [class*="thumbs-up"], [class*="love"]',
+    dislikeBtn: '[class*="dislike" i], [class*="thumbs-down"], [data-action="dislike"]',
+    downloadBtn: '[class*="download" i], [aria-label*="download" i]',
+    saveBtn: '[class*="save" i], [class*="bookmark" i]',
+    promptSource: '[class*="prompt"], textarea, [class*="caption"], [class*="description"]',
   },
   runway: {
     container: '[class*="gallery"], [class*="generations"]',
@@ -384,6 +391,19 @@ async function handleDeleteAction(output: OutputElement): Promise<void> {
     );
     flashLearningIndicator('Learning from deleted output');
     showLearningToast('Learning from deleted output...');
+
+    // Log rejection to CTAD capture session
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'LOG_REJECTION',
+        payload: {
+          promptVersionId: output.outputId,
+          reason: 'poor-quality',
+        },
+      });
+    } catch (error) {
+      console.error('[Refyn Observer] Failed to log CTAD rejection:', error);
+    }
   }
 
   // Remove from tracking
@@ -416,6 +436,7 @@ async function handleLikeAction(output: OutputElement): Promise<void> {
   console.log('[Refyn Observer] Like detected for:', output.outputId);
 
   if (output.prompt) {
+    // Record the basic like feedback immediately
     await recordOutputFeedback(
       output.prompt,
       output.outputId,
@@ -423,8 +444,21 @@ async function handleLikeAction(output: OutputElement): Promise<void> {
       'like'
     );
     output.rated = true;
-    flashLearningIndicator('Preference saved!');
-    showLearningToast('Learning your preferences...');
+
+    // Log selection to CTAD capture session (basic - will be updated with reason from popup)
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'LOG_SELECTION',
+        payload: {
+          promptVersionId: output.outputId,
+        },
+      });
+    } catch (error) {
+      console.error('[Refyn Observer] Failed to log CTAD selection:', error);
+    }
+
+    // Show the "why did you like this?" popup for deeper learning
+    showLikeFeedbackPopup(output.prompt, output.platform, output.outputId);
   }
 }
 
@@ -444,6 +478,19 @@ async function handleDislikeAction(output: OutputElement): Promise<void> {
     output.rated = true;
     flashLearningIndicator('Will avoid similar');
     showLearningToast('Noted - will avoid similar outputs');
+
+    // Log rejection to CTAD capture session
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'LOG_REJECTION',
+        payload: {
+          promptVersionId: output.outputId,
+          reason: 'wrong-style',
+        },
+      });
+    } catch (error) {
+      console.error('[Refyn Observer] Failed to log CTAD rejection:', error);
+    }
   }
 }
 
@@ -630,4 +677,214 @@ export function getObserverStats(): { tracked: number; rated: number } {
     tracked: trackedOutputs.size,
     rated,
   };
+}
+
+// =====================================================
+// LIKE FEEDBACK POPUP - Learn why users like outputs
+// =====================================================
+
+const LIKE_FEEDBACK_PRESETS = [
+  { id: 'great-style', label: 'Love the style', icon: '🎨' },
+  { id: 'perfect-colors', label: 'Perfect colors', icon: '🌈' },
+  { id: 'good-composition', label: 'Great composition', icon: '📐' },
+  { id: 'matches-vision', label: 'Matches my vision', icon: '✨' },
+  { id: 'unique-creative', label: 'Unique & creative', icon: '💡' },
+  { id: 'high-quality', label: 'High quality', icon: '⭐' },
+  { id: 'other', label: 'Tell me more...', icon: '💭' },
+];
+
+let likeFeedbackElement: HTMLElement | null = null;
+let likeFeedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Show like feedback popup to learn why user liked an output
+ */
+function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: string): void {
+  hideLikeFeedbackPopup();
+
+  likeFeedbackElement = document.createElement('div');
+  likeFeedbackElement.id = 'refyn-like-feedback';
+  likeFeedbackElement.className = 'refyn-like-feedback';
+  likeFeedbackElement.innerHTML = `
+    <div class="refyn-like-feedback-inner">
+      <div class="refyn-like-feedback-header">
+        <span class="refyn-like-feedback-title">What made this great?</span>
+        <button class="refyn-like-feedback-close" data-action="close">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="refyn-like-feedback-subtitle">Help Refyn learn your taste</div>
+      <div class="refyn-like-feedback-options">
+        ${LIKE_FEEDBACK_PRESETS.map(preset => `
+          <button class="refyn-like-feedback-btn" data-reason="${preset.id}">
+            <span class="refyn-like-feedback-icon">${preset.icon}</span>
+            <span class="refyn-like-feedback-label">${preset.label}</span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="refyn-like-feedback-custom" id="refyn-like-custom" style="display: none;">
+        <input type="text" class="refyn-like-feedback-input" placeholder="What specifically did you like?" maxlength="150">
+        <button class="refyn-like-feedback-submit" data-action="submit-custom">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+      <div class="refyn-like-feedback-skip">
+        <button class="refyn-like-feedback-skip-btn" data-action="skip">Skip for now</button>
+      </div>
+    </div>
+  `;
+
+  // Store data for submission
+  likeFeedbackElement.dataset.prompt = prompt;
+  likeFeedbackElement.dataset.platform = platform;
+  likeFeedbackElement.dataset.outputId = outputId;
+
+  // Position in bottom right corner
+  likeFeedbackElement.style.cssText = `
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    z-index: 2147483647;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  `;
+
+  // Add event listeners
+  likeFeedbackElement.querySelectorAll('.refyn-like-feedback-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const reason = (btn as HTMLElement).dataset.reason;
+
+      if (reason === 'other') {
+        // Show custom input
+        const customSection = likeFeedbackElement?.querySelector('#refyn-like-custom') as HTMLElement;
+        if (customSection) {
+          customSection.style.display = 'flex';
+          const input = customSection.querySelector('input');
+          input?.focus();
+        }
+        btn.classList.add('active');
+      } else {
+        submitLikeFeedback(reason || 'unknown');
+      }
+    });
+  });
+
+  // Close button
+  likeFeedbackElement.querySelector('[data-action="close"]')?.addEventListener('click', () => {
+    hideLikeFeedbackPopup();
+  });
+
+  // Skip button
+  likeFeedbackElement.querySelector('[data-action="skip"]')?.addEventListener('click', () => {
+    flashLearningIndicator('Preference saved!');
+    showLearningToast('Got it! Learning from your like...');
+    hideLikeFeedbackPopup();
+  });
+
+  // Custom submit
+  likeFeedbackElement.querySelector('[data-action="submit-custom"]')?.addEventListener('click', () => {
+    const input = likeFeedbackElement?.querySelector('.refyn-like-feedback-input') as HTMLInputElement;
+    submitLikeFeedback('custom', input?.value || '');
+  });
+
+  // Enter key on custom input
+  likeFeedbackElement.querySelector('.refyn-like-feedback-input')?.addEventListener('keydown', (e) => {
+    if ((e as KeyboardEvent).key === 'Enter') {
+      const input = e.target as HTMLInputElement;
+      submitLikeFeedback('custom', input.value || '');
+    }
+  });
+
+  document.body.appendChild(likeFeedbackElement);
+
+  // Animate in
+  requestAnimationFrame(() => {
+    likeFeedbackElement?.classList.add('refyn-like-feedback-visible');
+  });
+
+  // Auto-dismiss after 12 seconds
+  likeFeedbackTimeout = setTimeout(() => {
+    flashLearningIndicator('Preference saved!');
+    showLearningToast('Learning from your like...');
+    hideLikeFeedbackPopup();
+  }, 12000);
+}
+
+/**
+ * Submit like feedback with reason
+ */
+async function submitLikeFeedback(reason: string, customText?: string): Promise<void> {
+  try {
+    const prompt = likeFeedbackElement?.dataset.prompt || '';
+    const platform = (likeFeedbackElement?.dataset.platform || 'unknown') as Platform;
+    const outputId = likeFeedbackElement?.dataset.outputId || '';
+
+    // Record the enhanced like feedback
+    const { recordLikeFeedback } = await import('@/lib/deepLearning');
+    await recordLikeFeedback(prompt, platform, reason, customText);
+
+    // Update CTAD selection with the reason
+    try {
+      // Map internal reasons to CTAD reasons
+      const ctadReasonMap: Record<string, string> = {
+        'great-style': 'great-style',
+        'perfect-colors': 'perfect-colors',
+        'good-composition': 'matches-intent',
+        'matches-vision': 'matches-intent',
+        'unique-creative': 'unique',
+        'high-quality': 'technical-quality',
+        'custom': 'other',
+        'other': 'other',
+      };
+
+      await chrome.runtime.sendMessage({
+        type: 'LOG_SELECTION',
+        payload: {
+          promptVersionId: outputId,
+          likeReason: ctadReasonMap[reason] || 'other',
+          customFeedback: customText,
+        },
+      });
+    } catch (ctadError) {
+      console.error('[Refyn Observer] Failed to update CTAD selection:', ctadError);
+    }
+
+    // Show confirmation
+    const reasonLabel = LIKE_FEEDBACK_PRESETS.find(p => p.id === reason)?.label || reason;
+    flashLearningIndicator(`Got it: ${reasonLabel}`);
+    showLearningToast('Learning what you love...');
+
+    console.log('[Refyn Observer] Like feedback recorded:', { reason, customText, promptSnippet: prompt.substring(0, 50) });
+  } catch (error) {
+    console.error('[Refyn Observer] Error recording like feedback:', error);
+    flashLearningIndicator('Preference saved!');
+  }
+
+  hideLikeFeedbackPopup();
+}
+
+/**
+ * Hide like feedback popup
+ */
+function hideLikeFeedbackPopup(): void {
+  if (likeFeedbackTimeout) {
+    clearTimeout(likeFeedbackTimeout);
+    likeFeedbackTimeout = null;
+  }
+
+  if (likeFeedbackElement) {
+    likeFeedbackElement.classList.remove('refyn-like-feedback-visible');
+    likeFeedbackElement.classList.add('refyn-like-feedback-fade');
+    setTimeout(() => {
+      likeFeedbackElement?.remove();
+      likeFeedbackElement = null;
+    }, 200);
+  }
 }

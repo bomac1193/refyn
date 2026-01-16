@@ -15,6 +15,20 @@ import {
   addLineageNode,
   getLineage,
 } from '@/lib/storage';
+import {
+  startCaptureSession,
+  logPromptVersion,
+  logRejection,
+  logSelection,
+  endCaptureSession,
+  setContributionConsent,
+  getContributorStats,
+  getContributorId,
+  restoreActiveSession,
+  processPendingSubmissions,
+  getActiveSession,
+  getCurrentVersionId,
+} from '@/lib/processCapture';
 import type { Platform, OptimizationMode, TasteProfile } from '@/shared/types';
 
 // Message types
@@ -78,6 +92,54 @@ interface LineageMessage {
   };
 }
 
+// CTAD Process Capture Messages
+interface StartCaptureMessage {
+  type: 'START_CAPTURE_SESSION';
+  payload: { platform: Platform };
+}
+
+interface LogPromptVersionMessage {
+  type: 'LOG_PROMPT_VERSION';
+  payload: {
+    content: string;
+    mode: OptimizationMode | 'manual';
+    parentId?: string;
+    metadata?: Record<string, unknown>;
+  };
+}
+
+interface LogRejectionMessage {
+  type: 'LOG_REJECTION';
+  payload: {
+    promptVersionId: string;
+    reason?: string;
+    customFeedback?: string;
+  };
+}
+
+interface LogSelectionMessage {
+  type: 'LOG_SELECTION';
+  payload: {
+    promptVersionId: string;
+    likeReason?: string;
+    customFeedback?: string;
+    outputHash?: string;
+  };
+}
+
+interface EndCaptureMessage {
+  type: 'END_CAPTURE_SESSION';
+}
+
+interface ContributionConsentMessage {
+  type: 'SET_CONTRIBUTION_CONSENT';
+  payload: { enabled: boolean };
+}
+
+interface GetContributorDataMessage {
+  type: 'GET_CONTRIBUTOR_STATS' | 'GET_CONTRIBUTOR_ID' | 'GET_ACTIVE_SESSION' | 'GET_CURRENT_VERSION_ID';
+}
+
 type Message =
   | OptimizeMessage
   | ApiKeyMessage
@@ -87,7 +149,14 @@ type Message =
   | UpdateSettingsMessage
   | UpdateTasteProfileMessage
   | DeletePromptMessage
-  | LineageMessage;
+  | LineageMessage
+  | StartCaptureMessage
+  | LogPromptVersionMessage
+  | LogRejectionMessage
+  | LogSelectionMessage
+  | EndCaptureMessage
+  | ContributionConsentMessage
+  | GetContributorDataMessage;
 
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener(
@@ -222,6 +291,74 @@ async function handleMessage(message: Message): Promise<unknown> {
       return { success: false, error: 'Node ID required' };
     }
 
+    // ========================================
+    // CTAD Process Capture
+    // ========================================
+
+    case 'START_CAPTURE_SESSION': {
+      const { platform } = message.payload;
+      const session = await startCaptureSession(platform);
+      return { success: true, data: session };
+    }
+
+    case 'LOG_PROMPT_VERSION': {
+      const { content, mode, parentId, metadata } = message.payload;
+      const version = await logPromptVersion(content, mode, parentId || null, metadata);
+      return { success: true, data: version };
+    }
+
+    case 'LOG_REJECTION': {
+      const { promptVersionId, reason, customFeedback } = message.payload;
+      const rejection = await logRejection(
+        promptVersionId,
+        reason as 'poor-quality' | 'wrong-style' | 'doesnt-match' | 'too-generic' | 'technical-issue' | 'other' | undefined,
+        customFeedback
+      );
+      return { success: true, data: rejection };
+    }
+
+    case 'LOG_SELECTION': {
+      const { promptVersionId, likeReason, customFeedback, outputHash } = message.payload;
+      const selection = await logSelection(
+        promptVersionId,
+        likeReason as 'great-style' | 'perfect-colors' | 'matches-intent' | 'unique' | 'technical-quality' | 'other' | undefined,
+        customFeedback,
+        outputHash
+      );
+      return { success: true, data: selection };
+    }
+
+    case 'END_CAPTURE_SESSION': {
+      await endCaptureSession();
+      return { success: true };
+    }
+
+    case 'SET_CONTRIBUTION_CONSENT': {
+      const { enabled } = message.payload;
+      await setContributionConsent(enabled);
+      return { success: true };
+    }
+
+    case 'GET_CONTRIBUTOR_STATS': {
+      const stats = await getContributorStats();
+      return { success: true, data: stats };
+    }
+
+    case 'GET_CONTRIBUTOR_ID': {
+      const contributorId = await getContributorId();
+      return { success: true, data: contributorId };
+    }
+
+    case 'GET_ACTIVE_SESSION': {
+      const session = getActiveSession();
+      return { success: true, data: session };
+    }
+
+    case 'GET_CURRENT_VERSION_ID': {
+      const versionId = getCurrentVersionId();
+      return { success: true, data: versionId };
+    }
+
     default:
       return { success: false, error: 'Unknown message type' };
   }
@@ -288,5 +425,30 @@ const keepAlive = () => {
 };
 
 keepAlive();
+
+// Initialize CTAD process capture
+async function initializeProcessCapture() {
+  try {
+    // Restore any active session from storage
+    await restoreActiveSession();
+
+    // Process any pending submissions from previous sessions
+    await processPendingSubmissions();
+
+    console.log('[Refyn] Process capture initialized');
+  } catch (error) {
+    console.error('[Refyn] Failed to initialize process capture:', error);
+  }
+}
+
+// Run initialization
+initializeProcessCapture();
+
+// Periodically try to submit pending contributions (every 5 minutes)
+setInterval(() => {
+  processPendingSubmissions().catch((error) => {
+    console.error('[Refyn] Failed to process pending submissions:', error);
+  });
+}, 5 * 60 * 1000);
 
 console.log('[Refyn] Background service worker initialized');
