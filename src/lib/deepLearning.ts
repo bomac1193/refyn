@@ -103,13 +103,25 @@ export interface DeepPreferences {
   };
   // Trash feedback tracking
   trashReasons?: Record<string, number>;
-  // Reason-keyword associations
+  // Reason-keyword associations for dislikes
   reasonKeywords?: Record<string, string[]>;
-  // Custom feedback entries
+  // Custom trash feedback entries
   customFeedback?: Array<{
     text: string;
     prompt: string;
     platform: Platform;
+    timestamp: number;
+  }>;
+  // Like feedback tracking - why users like outputs
+  likeReasons?: Record<string, number>;
+  // Reason-keyword associations for likes
+  likeKeywords?: Record<string, string[]>;
+  // Custom like feedback entries with enhanced context
+  customLikeFeedback?: Array<{
+    text: string;
+    prompt: string;
+    platform: Platform;
+    reason: string;
     timestamp: number;
   }>;
 }
@@ -342,6 +354,112 @@ export async function recordOutputFeedback(
 }
 
 /**
+ * Record like feedback with reason
+ * This helps learn what makes outputs successful for the user
+ */
+export async function recordLikeFeedback(
+  prompt: string,
+  platform: Platform,
+  reason: string,
+  customText?: string
+): Promise<void> {
+  console.log('[Refyn Deep Learning] Recording like feedback:', { reason, platform, customText });
+
+  const prefs = await getDeepPreferences();
+  const keywords = extractKeywordsFromPrompt(prompt);
+
+  // Positive weight for like with reason - stronger than basic like
+  const weight = reason === 'skipped' ? 2 : 3.5;
+
+  // Update keyword scores with stronger positive weight
+  const allKeywords = Object.values(keywords).flat();
+  for (const kw of allKeywords) {
+    for (const [category, kws] of Object.entries(keywords)) {
+      if (kws.includes(kw)) {
+        if (!prefs.keywordScores[category]) {
+          prefs.keywordScores[category] = {};
+        }
+        const currentScore = prefs.keywordScores[category][kw] || 0;
+        prefs.keywordScores[category][kw] = Math.max(-10, Math.min(10, currentScore + weight));
+      }
+    }
+  }
+
+  // Store the like reason for future analysis
+  if (!prefs.likeReasons) {
+    prefs.likeReasons = {};
+  }
+  if (!prefs.likeReasons[reason]) {
+    prefs.likeReasons[reason] = 0;
+  }
+  prefs.likeReasons[reason]++;
+
+  // If specific reason, extract and amplify patterns
+  if (reason !== 'skipped' && reason !== 'other') {
+    // Store reason-keyword associations for smarter suggestions
+    if (!prefs.likeKeywords) {
+      prefs.likeKeywords = {};
+    }
+    if (!prefs.likeKeywords[reason]) {
+      prefs.likeKeywords[reason] = [];
+    }
+
+    // Associate keywords with this positive reason
+    for (const kw of allKeywords.slice(0, 5)) {
+      if (!prefs.likeKeywords[reason].includes(kw)) {
+        prefs.likeKeywords[reason].push(kw);
+      }
+    }
+    // Keep only last 30 per reason for better pattern recognition
+    prefs.likeKeywords[reason] = prefs.likeKeywords[reason].slice(-30);
+  }
+
+  // Store custom text for detailed analysis
+  if (customText && customText.trim()) {
+    if (!prefs.customLikeFeedback) {
+      prefs.customLikeFeedback = [];
+    }
+    prefs.customLikeFeedback.push({
+      text: customText.trim(),
+      prompt: prompt.substring(0, 100),
+      platform,
+      reason,
+      timestamp: Date.now(),
+    });
+    // Keep only last 100 for comprehensive learning
+    prefs.customLikeFeedback = prefs.customLikeFeedback.slice(-100);
+
+    // Extract keywords from custom feedback text and boost them
+    const customKeywords = extractKeywordsFromPrompt(customText);
+    for (const [category, kws] of Object.entries(customKeywords)) {
+      if (!prefs.keywordScores[category]) {
+        prefs.keywordScores[category] = {};
+      }
+      for (const kw of kws) {
+        const currentScore = prefs.keywordScores[category][kw] || 0;
+        prefs.keywordScores[category][kw] = Math.max(-10, Math.min(10, currentScore + 2));
+      }
+    }
+  }
+
+  // Update successful combinations more aggressively
+  if (allKeywords.length >= 2) {
+    const combination = allKeywords.slice(0, 5).sort();
+    if (!prefs.successfulCombinations.find((c) => JSON.stringify(c) === JSON.stringify(combination))) {
+      prefs.successfulCombinations.push(combination);
+      // Keep more successful combinations since they're valuable
+      prefs.successfulCombinations = prefs.successfulCombinations.slice(-100);
+    }
+  }
+
+  // Update stats
+  prefs.stats.totalLikes++;
+
+  await saveDeepPreferences(prefs);
+  console.log('[Refyn Deep Learning] Like feedback recorded with enhanced learning');
+}
+
+/**
  * Record trash/delete feedback with reason
  * This helps learn why certain outputs fail
  */
@@ -531,6 +649,66 @@ export async function getSmartSuggestionContext(platform: Platform): Promise<str
   if (prefs.successfulCombinations.length > 0) {
     const bestCombos = prefs.successfulCombinations.slice(-3);
     parts.push(`Successful keyword combinations: ${bestCombos.map((c) => c.join(' + ')).join('; ')}`);
+  }
+
+  // Add like reason insights - what the user specifically values
+  if (prefs.likeReasons && Object.keys(prefs.likeReasons).length > 0) {
+    const topReasons = Object.entries(prefs.likeReasons)
+      .filter(([reason]) => reason !== 'skipped' && reason !== 'other')
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([reason]) => {
+        // Convert reason IDs to descriptive text
+        const reasonDescriptions: Record<string, string> = {
+          'great-style': 'distinctive style',
+          'perfect-colors': 'color harmony',
+          'good-composition': 'strong composition',
+          'matches-vision': 'vision accuracy',
+          'unique-creative': 'creativity & uniqueness',
+          'high-quality': 'high quality output',
+        };
+        return reasonDescriptions[reason] || reason;
+      });
+
+    if (topReasons.length > 0) {
+      parts.push(`User specifically values: ${topReasons.join(', ')}`);
+    }
+  }
+
+  // Add keywords associated with positive feedback
+  if (prefs.likeKeywords && Object.keys(prefs.likeKeywords).length > 0) {
+    const likedKeywordsSet = new Set<string>();
+    for (const keywords of Object.values(prefs.likeKeywords)) {
+      for (const kw of keywords.slice(-5)) {
+        likedKeywordsSet.add(kw);
+      }
+    }
+    const likedKeywords = Array.from(likedKeywordsSet).slice(0, 8);
+    if (likedKeywords.length > 0) {
+      parts.push(`Keywords from liked outputs: ${likedKeywords.join(', ')}`);
+    }
+  }
+
+  // Add trash reason insights - what to avoid
+  if (prefs.trashReasons && Object.keys(prefs.trashReasons).length > 0) {
+    const topTrashReasons = Object.entries(prefs.trashReasons)
+      .filter(([reason]) => reason !== 'skipped' && reason !== 'other')
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([reason]) => {
+        const reasonDescriptions: Record<string, string> = {
+          'poor-quality': 'low quality',
+          'wrong-style': 'wrong style',
+          'doesnt-match': 'prompt mismatch',
+          'too-similar': 'repetitive results',
+          'wrong-composition': 'poor composition',
+        };
+        return reasonDescriptions[reason] || reason;
+      });
+
+    if (topTrashReasons.length > 0) {
+      parts.push(`User often deletes due to: ${topTrashReasons.join(', ')} - avoid these issues`);
+    }
   }
 
   if (parts.length === 0) {

@@ -139,7 +139,7 @@ export const STORAGE_KEYS = {
 } as const;
 
 // CTAD API Configuration
-export const CTAD_API_URL = 'http://localhost:3001/api/process-declaration';
+export const CTAD_API_URL = 'https://ctad-protocol.vercel.app/api/process-declaration';
 
 // Contributor Tier Thresholds
 export const TIER_THRESHOLDS = {
