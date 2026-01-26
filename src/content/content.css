@@ -3119,6 +3119,138 @@
   color: #4ADE80;
 }
 
+/* =====================================================
+   TASTE LIBRARY SECTION STYLES
+   ===================================================== */
+
+.refyn-taste-library-section {
+  margin-bottom: 10px;
+}
+
+.refyn-taste-library-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.refyn-taste-presets {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.refyn-preset-label {
+  font-size: 9px;
+  color: #71717A;
+  white-space: nowrap;
+}
+
+.refyn-preset-select {
+  flex: 1;
+  padding: 6px 8px;
+  background: rgba(39, 39, 42, 0.8);
+  border: 1px solid rgba(63, 63, 70, 0.5);
+  border-radius: 6px;
+  color: #FAFAFA;
+  font-size: 10px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.refyn-preset-select:focus {
+  border-color: rgba(0, 240, 255, 0.5);
+}
+
+.refyn-preset-select option {
+  background: #18181B;
+  color: #FAFAFA;
+}
+
+.refyn-apply-preset-btn {
+  padding: 6px 10px;
+  background: linear-gradient(135deg, #00F0FF 0%, #00C4CC 100%);
+  border: none;
+  border-radius: 6px;
+  color: #0A0A0C;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.refyn-apply-preset-btn:hover {
+  background: linear-gradient(135deg, #00C4CC 0%, #00A0A8 100%);
+}
+
+.refyn-taste-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.refyn-taste-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(63, 63, 70, 0.4);
+  border: 1px solid rgba(63, 63, 70, 0.6);
+  border-radius: 6px;
+  color: #A1A1AA;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refyn-taste-btn:hover {
+  background: rgba(63, 63, 70, 0.6);
+  color: #FAFAFA;
+}
+
+.refyn-taste-btn.loading {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refyn-taste-btn svg {
+  flex-shrink: 0;
+}
+
+.refyn-vision-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: rgba(26, 26, 30, 0.6);
+  border-radius: 6px;
+}
+
+.refyn-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: #FAFAFA;
+  cursor: pointer;
+}
+
+.refyn-toggle-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #00F0FF;
+  cursor: pointer;
+}
+
+.refyn-vision-hint {
+  font-size: 9px;
+  color: #52525B;
+  margin-left: 22px;
+}
+
 /* Make tabs more compact */
 .refyn-tab {
   padding: 6px 8px;

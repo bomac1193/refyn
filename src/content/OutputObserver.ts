@@ -5,16 +5,89 @@
 
 import type { Platform } from '@/shared/types';
 import { detectPlatform } from './platformDetector';
-import { recordOutputFeedback, linkPromptToOutput } from '@/lib/deepLearning';
+import { recordOutputFeedback, linkPromptToOutput, getDeepPreferences, saveDeepPreferences } from '@/lib/deepLearning';
 import { flashLearningIndicator } from './FloatingPanel';
+import { descriptorsToKeywordScores, mergeVisualAnalysis } from '@/lib/visionAnalysis';
 
 interface OutputElement {
   element: HTMLElement;
   outputId: string;
   prompt?: string;
+  imageUrl?: string;
   platform: Platform;
   timestamp: number;
   rated: boolean;
+}
+
+/**
+ * Check if vision analysis is enabled
+ */
+function isVisionAnalysisEnabled(): boolean {
+  return localStorage.getItem('refyn-vision-analysis') !== 'false';
+}
+
+/**
+ * Extract image URL from an output element
+ */
+function extractImageUrl(element: HTMLElement): string | undefined {
+  // Try to find an image element
+  const img = element.querySelector('img') as HTMLImageElement;
+  if (img?.src && !img.src.startsWith('data:')) {
+    return img.src;
+  }
+
+  // Try background image
+  const bgElement = element.querySelector('[style*="background-image"]') as HTMLElement;
+  if (bgElement) {
+    const bg = bgElement.style.backgroundImage;
+    const match = bg.match(/url\(["']?([^"')]+)["']?\)/);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  // Check the element itself for background image
+  const elementBg = element.style.backgroundImage;
+  if (elementBg) {
+    const match = elementBg.match(/url\(["']?([^"')]+)["']?\)/);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Perform vision analysis on an image and update preferences
+ */
+async function analyzeImageAndUpdatePreferences(
+  imageUrl: string,
+  platform: Platform,
+  isLiked: boolean
+): Promise<void> {
+  if (!isVisionAnalysisEnabled()) return;
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'ANALYZE_IMAGE',
+      payload: { imageUrl, platform },
+    });
+
+    if (response?.success && response.descriptors) {
+      // Convert descriptors to keyword scores
+      const newScores = descriptorsToKeywordScores(response.descriptors, isLiked);
+
+      // Merge with existing preferences
+      const prefs = await getDeepPreferences();
+      prefs.keywordScores = mergeVisualAnalysis(prefs.keywordScores || {}, newScores);
+      await saveDeepPreferences(prefs);
+
+      console.log('[Refyn Vision] Updated preferences from image analysis:', response.descriptors.overallAesthetic);
+    }
+  } catch (error) {
+    console.error('[Refyn Vision] Analysis failed:', error);
+  }
 }
 
 // Track detected outputs
@@ -453,6 +526,13 @@ async function handleLikeAction(output: OutputElement): Promise<void> {
       console.error('[Refyn Observer] Failed to log CTAD selection:', error);
     }
 
+    // Vision analysis - learn from the image itself
+    const imageUrl = output.imageUrl || extractImageUrl(output.element);
+    if (imageUrl) {
+      // Run analysis in background (don't block the UI)
+      analyzeImageAndUpdatePreferences(imageUrl, output.platform, true);
+    }
+
     // Show the "why did you like this?" popup for deeper learning
     showLikeFeedbackPopup(output.prompt, output.platform, output.outputId);
   }
@@ -474,6 +554,13 @@ async function handleDislikeAction(output: OutputElement): Promise<void> {
     output.rated = true;
     flashLearningIndicator('Will avoid similar');
     showLearningToast('Noted - will avoid similar outputs');
+
+    // Vision analysis - learn what to avoid from the image
+    const imageUrl = output.imageUrl || extractImageUrl(output.element);
+    if (imageUrl) {
+      // Run analysis in background (don't block the UI)
+      analyzeImageAndUpdatePreferences(imageUrl, output.platform, false);
+    }
 
     // Log rejection to CTAD capture session
     try {

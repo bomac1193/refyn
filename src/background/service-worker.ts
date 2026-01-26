@@ -50,6 +50,17 @@ import {
 } from '@/lib/processCapture';
 import type { Platform, OptimizationMode, TasteProfile } from '@/shared/types';
 import { getDeepPreferences } from '@/lib/deepLearning';
+import {
+  exportTastePack,
+  importTastePack,
+  TASTE_PRESETS,
+  getPresetByName,
+  type TastePack,
+} from '@/lib/tasteLibrary';
+import {
+  buildVisionPrompt,
+  parseVisionResponse,
+} from '@/lib/visionAnalysis';
 
 // Message types
 interface OptimizeMessage {
@@ -221,6 +232,32 @@ interface SyncMessage {
   type: 'SYNC_TO_CLOUD' | 'SYNC_FROM_CLOUD' | 'GET_SYNC_STATUS';
 }
 
+// Vision Analysis Messages
+interface AnalyzeImageMessage {
+  type: 'ANALYZE_IMAGE';
+  payload: { imageUrl: string; platform: Platform };
+}
+
+// Taste Library Messages
+interface ExportTastePackMessage {
+  type: 'EXPORT_TASTE_PACK';
+  payload: { name: string; description: string; tags: string[] };
+}
+
+interface ImportTastePackMessage {
+  type: 'IMPORT_TASTE_PACK';
+  payload: { pack: unknown; mode: 'merge' | 'replace' };
+}
+
+interface GetTastePresetsMessage {
+  type: 'GET_TASTE_PRESETS';
+}
+
+interface ApplyTastePresetMessage {
+  type: 'APPLY_TASTE_PRESET';
+  payload: { presetName: string; mode: 'merge' | 'replace' };
+}
+
 type Message =
   | OptimizeMessage
   | ApiKeyMessage
@@ -246,7 +283,12 @@ type Message =
   | AuthSignOutMessage
   | AuthGetStateMessage
   | AuthConfigureMessage
-  | SyncMessage;
+  | SyncMessage
+  | AnalyzeImageMessage
+  | ExportTastePackMessage
+  | ImportTastePackMessage
+  | GetTastePresetsMessage
+  | ApplyTastePresetMessage;
 
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener(
@@ -557,6 +599,118 @@ async function handleMessage(message: Message): Promise<unknown> {
     case 'GET_SYNC_STATUS': {
       const syncStatus = await getSyncStatus();
       return { success: true, data: syncStatus };
+    }
+
+    // Vision Analysis
+    case 'ANALYZE_IMAGE': {
+      const { imageUrl, platform: _platform } = message.payload;
+
+      try {
+        // Get API key for Claude vision
+        const apiKey = await getApiKey();
+        if (!apiKey) {
+          return { success: false, error: 'API key required for image analysis' };
+        }
+
+        // Call Claude API with vision
+        const response = await fetch(CLAUDE_API_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: CLAUDE_MODEL,
+            max_tokens: 1024,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'image',
+                    source: {
+                      type: 'url',
+                      url: imageUrl,
+                    },
+                  },
+                  {
+                    type: 'text',
+                    text: buildVisionPrompt(),
+                  },
+                ],
+              },
+            ],
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          return { success: false, error: errorData.error?.message || 'Vision API failed' };
+        }
+
+        const data = await response.json();
+        const assistantMessage = data.content?.[0]?.text || '';
+        const descriptors = parseVisionResponse(assistantMessage);
+
+        if (descriptors) {
+          return { success: true, descriptors };
+        }
+
+        return { success: false, error: 'Failed to parse vision response' };
+      } catch (error) {
+        console.error('[Refyn] Vision analysis error:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+
+    // Taste Library - Export
+    case 'EXPORT_TASTE_PACK': {
+      const { name, description, tags } = message.payload;
+      try {
+        const pack = await exportTastePack(name, description, tags);
+        return { success: true, pack };
+      } catch (error) {
+        return { success: false, error: String(error) };
+      }
+    }
+
+    // Taste Library - Import
+    case 'IMPORT_TASTE_PACK': {
+      const { pack, mode } = message.payload;
+      try {
+        const result = await importTastePack(pack as TastePack, mode);
+        return result;
+      } catch (error) {
+        return { success: false, error: String(error) };
+      }
+    }
+
+    // Taste Library - Get Presets
+    case 'GET_TASTE_PRESETS': {
+      return {
+        success: true,
+        presets: TASTE_PRESETS.map((p) => ({
+          name: p.name,
+          description: p.description,
+          tags: p.tags,
+        })),
+      };
+    }
+
+    // Taste Library - Apply Preset
+    case 'APPLY_TASTE_PRESET': {
+      const { presetName, mode } = message.payload;
+      try {
+        const preset = getPresetByName(presetName);
+        if (!preset) {
+          return { success: false, error: 'Preset not found' };
+        }
+        const result = await importTastePack(preset, mode);
+        return result;
+      } catch (error) {
+        return { success: false, error: String(error) };
+      }
     }
 
     default:

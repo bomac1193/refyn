@@ -602,6 +602,48 @@ function generatePanelHTML(): string {
             </div>
           </div>
 
+          <!-- Taste Library Section -->
+          <div class="refyn-profile-section refyn-taste-library-section">
+            <div class="refyn-profile-header">
+              <span>Taste Library</span>
+            </div>
+            <div class="refyn-taste-library-content">
+              <div class="refyn-taste-presets">
+                <label class="refyn-preset-label">Quick Start Presets</label>
+                <select class="refyn-preset-select" id="refyn-preset-select">
+                  <option value="">Select a preset...</option>
+                </select>
+                <button class="refyn-apply-preset-btn" id="refyn-apply-preset">Apply</button>
+              </div>
+              <div class="refyn-taste-actions">
+                <button class="refyn-taste-btn" id="refyn-export-taste" title="Export your taste profile">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  Export
+                </button>
+                <button class="refyn-taste-btn" id="refyn-import-taste" title="Import a taste pack">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  Import
+                </button>
+                <input type="file" id="refyn-import-file" accept=".json" style="display: none;">
+              </div>
+              <div class="refyn-vision-toggle">
+                <label class="refyn-toggle-label">
+                  <input type="checkbox" id="refyn-vision-analysis" checked>
+                  <span>Analyze images when rating</span>
+                </label>
+                <span class="refyn-vision-hint">Uses AI to learn from visual styles</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Taste Profile Section -->
           <div class="refyn-profile-section">
             <div class="refyn-profile-header">
@@ -787,8 +829,20 @@ function setupEventListeners(): void {
   panel.querySelector('#refyn-logout-btn')?.addEventListener('click', handleLogout);
   panel.querySelector('#refyn-sync-btn')?.addEventListener('click', handleSync);
 
+  // Taste library event listeners
+  panel.querySelector('#refyn-apply-preset')?.addEventListener('click', handleApplyPreset);
+  panel.querySelector('#refyn-export-taste')?.addEventListener('click', handleExportTaste);
+  panel.querySelector('#refyn-import-taste')?.addEventListener('click', () => {
+    (panel?.querySelector('#refyn-import-file') as HTMLInputElement)?.click();
+  });
+  panel.querySelector('#refyn-import-file')?.addEventListener('change', handleImportTaste);
+  panel.querySelector('#refyn-vision-analysis')?.addEventListener('change', handleVisionToggle);
+
   // Check auth state on init
   checkAuthState();
+
+  // Load taste presets
+  loadTastePresets();
 }
 
 // =====================================================
@@ -2950,3 +3004,160 @@ async function handleSync(): Promise<void> {
   syncBtn?.classList.remove('syncing');
   syncIndicator?.classList.remove('syncing');
 }
+
+// =====================================================
+// TASTE LIBRARY HANDLERS
+// =====================================================
+
+/**
+ * Load taste presets into the select dropdown
+ */
+async function loadTastePresets(): Promise<void> {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'GET_TASTE_PRESETS' });
+
+    if (response?.success && response.presets) {
+      const select = panel?.querySelector('#refyn-preset-select') as HTMLSelectElement;
+      if (!select) return;
+
+      // Clear existing options except the first one
+      while (select.options.length > 1) {
+        select.remove(1);
+      }
+
+      // Add presets
+      for (const preset of response.presets) {
+        const option = document.createElement('option');
+        option.value = preset.name;
+        option.textContent = preset.name;
+        option.title = preset.description;
+        select.appendChild(option);
+      }
+    }
+  } catch (error) {
+    console.error('[Refyn] Failed to load presets:', error);
+  }
+}
+
+/**
+ * Handle applying a taste preset
+ */
+async function handleApplyPreset(): Promise<void> {
+  const select = panel?.querySelector('#refyn-preset-select') as HTMLSelectElement;
+  const presetName = select?.value;
+
+  if (!presetName) {
+    showToast('Select a preset first');
+    return;
+  }
+
+  const applyBtn = panel?.querySelector('#refyn-apply-preset') as HTMLButtonElement;
+  if (applyBtn) applyBtn.textContent = '...';
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'APPLY_TASTE_PRESET',
+      payload: { presetName, mode: 'merge' },
+    });
+
+    if (response?.success) {
+      showToast(`Applied "${presetName}" preset`);
+      select.value = '';
+    } else {
+      showToast(response?.error || 'Failed to apply preset', 'error');
+    }
+  } catch (error) {
+    showToast('Failed to apply preset', 'error');
+  }
+
+  if (applyBtn) applyBtn.textContent = 'Apply';
+}
+
+/**
+ * Handle exporting taste profile
+ */
+async function handleExportTaste(): Promise<void> {
+  const exportBtn = panel?.querySelector('#refyn-export-taste') as HTMLButtonElement;
+  if (exportBtn) exportBtn.classList.add('loading');
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'EXPORT_TASTE_PACK',
+      payload: {
+        name: 'My Taste Profile',
+        description: 'Exported from Refyn',
+        tags: ['custom', 'personal'],
+      },
+    });
+
+    if (response?.success && response.pack) {
+      // Download the pack
+      const json = JSON.stringify(response.pack, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `refyn-taste-profile-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast('Taste profile exported');
+    } else {
+      showToast(response?.error || 'Export failed', 'error');
+    }
+  } catch (error) {
+    showToast('Export failed', 'error');
+  }
+
+  if (exportBtn) exportBtn.classList.remove('loading');
+}
+
+/**
+ * Handle importing taste pack
+ */
+async function handleImportTaste(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const pack = JSON.parse(text);
+
+    // Validate basic structure
+    if (!pack.name || !pack.deepPreferences) {
+      showToast('Invalid taste pack file', 'error');
+      return;
+    }
+
+    const response = await chrome.runtime.sendMessage({
+      type: 'IMPORT_TASTE_PACK',
+      payload: { pack, mode: 'merge' },
+    });
+
+    if (response?.success) {
+      showToast(`Imported "${pack.name}"`);
+    } else {
+      showToast(response?.error || 'Import failed', 'error');
+    }
+  } catch (error) {
+    showToast('Invalid JSON file', 'error');
+  }
+
+  // Clear the input
+  input.value = '';
+}
+
+/**
+ * Handle vision analysis toggle
+ */
+function handleVisionToggle(event: Event): void {
+  const checked = (event.target as HTMLInputElement).checked;
+  localStorage.setItem('refyn-vision-analysis', checked ? 'true' : 'false');
+  showToast(checked ? 'Vision analysis enabled' : 'Vision analysis disabled');
+}
+
