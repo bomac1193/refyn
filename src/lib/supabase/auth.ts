@@ -14,13 +14,21 @@ export interface AuthState {
 }
 
 /**
- * Get current auth state
+ * Get current auth state with robust session recovery
  */
 export async function getAuthState(): Promise<AuthState> {
   try {
+    console.log('[Refyn Auth] Getting auth state...');
+
+    // First check if we have session data in storage
+    const storageKey = 'refyn_sb_auth';
+    const stored = await chrome.storage.local.get(storageKey);
+    const hasStoredSession = !!stored[storageKey];
+    console.log('[Refyn Auth] Stored session exists:', hasStoredSession);
+
     const supabase = await getSupabase();
 
-    // First try to get the current session
+    // Try to get the current session (Supabase should load from storage automatically)
     const { data: { session }, error } = await supabase.auth.getSession();
 
     if (error) {
@@ -29,6 +37,7 @@ export async function getAuthState(): Promise<AuthState> {
     }
 
     if (session) {
+      console.log('[Refyn Auth] Session found for:', session.user.email);
       return {
         isLoggedIn: true,
         user: session.user,
@@ -36,18 +45,30 @@ export async function getAuthState(): Promise<AuthState> {
       };
     }
 
-    // If no session, try to refresh from stored token
-    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    // If no session but we have stored data, try to refresh
+    if (hasStoredSession) {
+      console.log('[Refyn Auth] No active session but have stored data, attempting refresh...');
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
 
-    if (refreshError || !refreshData.session) {
-      return { isLoggedIn: false, user: null, session: null };
+      if (refreshError) {
+        console.error('[Refyn Auth] Refresh error:', refreshError);
+        // Clear invalid session data
+        await chrome.storage.local.remove(storageKey);
+        return { isLoggedIn: false, user: null, session: null };
+      }
+
+      if (refreshData.session) {
+        console.log('[Refyn Auth] Session refreshed for:', refreshData.session.user.email);
+        return {
+          isLoggedIn: true,
+          user: refreshData.session.user,
+          session: refreshData.session,
+        };
+      }
     }
 
-    return {
-      isLoggedIn: true,
-      user: refreshData.session.user,
-      session: refreshData.session,
-    };
+    console.log('[Refyn Auth] No session found');
+    return { isLoggedIn: false, user: null, session: null };
   } catch (err) {
     console.error('[Refyn Auth] getAuthState error:', err);
     return { isLoggedIn: false, user: null, session: null };
@@ -92,6 +113,7 @@ export async function signIn(
   password: string
 ): Promise<{ success: boolean; error?: string; user?: User }> {
   try {
+    console.log('[Refyn Auth] Signing in:', email);
     const supabase = await getSupabase();
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -99,15 +121,26 @@ export async function signIn(
     });
 
     if (error) {
+      console.error('[Refyn Auth] Sign in error:', error);
       return { success: false, error: error.message };
     }
 
-    if (data.user) {
+    if (data.user && data.session) {
+      console.log('[Refyn Auth] Sign in successful:', data.user.email);
+
+      // Verify the session was saved to storage
+      const storageKey = 'refyn_sb_auth';
+      setTimeout(async () => {
+        const stored = await chrome.storage.local.get(storageKey);
+        console.log('[Refyn Auth] Session saved to storage:', !!stored[storageKey]);
+      }, 500);
+
       return { success: true, user: data.user };
     }
 
     return { success: false, error: 'Unknown error during login' };
   } catch (err) {
+    console.error('[Refyn Auth] Sign in exception:', err);
     return { success: false, error: String(err) };
   }
 }

@@ -66,30 +66,33 @@ export async function getSupabase(): Promise<SupabaseClient> {
       detectSessionInUrl: false,
       storageKey: `${STORAGE_PREFIX}auth`,
       storage: {
+        // Note: Supabase passes the storageKey directly to these methods,
+        // so we don't need to add any prefix here
         getItem: async (key) => {
           try {
-            const storageKey = `${STORAGE_PREFIX}${key}`;
-            const result = await chrome.storage.local.get(storageKey);
-            return result[storageKey] || null;
+            const result = await chrome.storage.local.get(key);
+            const value = result[key] || null;
+            console.log('[Refyn Auth Storage] getItem:', key, value ? 'found' : 'not found');
+            return value;
           } catch (err) {
-            console.error('[Refyn Storage] getItem error:', err);
+            console.error('[Refyn Auth Storage] getItem error:', key, err);
             return null;
           }
         },
         setItem: async (key, value) => {
           try {
-            const storageKey = `${STORAGE_PREFIX}${key}`;
-            await chrome.storage.local.set({ [storageKey]: value });
+            await chrome.storage.local.set({ [key]: value });
+            console.log('[Refyn Auth Storage] setItem:', key);
           } catch (err) {
-            console.error('[Refyn Storage] setItem error:', err);
+            console.error('[Refyn Auth Storage] setItem error:', key, err);
           }
         },
         removeItem: async (key) => {
           try {
-            const storageKey = `${STORAGE_PREFIX}${key}`;
-            await chrome.storage.local.remove(storageKey);
+            await chrome.storage.local.remove(key);
+            console.log('[Refyn Auth Storage] removeItem:', key);
           } catch (err) {
-            console.error('[Refyn Storage] removeItem error:', err);
+            console.error('[Refyn Auth Storage] removeItem error:', key, err);
           }
         },
       },
