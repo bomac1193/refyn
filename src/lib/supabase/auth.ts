@@ -19,18 +19,37 @@ export interface AuthState {
 export async function getAuthState(): Promise<AuthState> {
   try {
     const supabase = await getSupabase();
+
+    // First try to get the current session
     const { data: { session }, error } = await supabase.auth.getSession();
 
-    if (error || !session) {
+    if (error) {
+      console.error('[Refyn Auth] getSession error:', error);
+      return { isLoggedIn: false, user: null, session: null };
+    }
+
+    if (session) {
+      return {
+        isLoggedIn: true,
+        user: session.user,
+        session,
+      };
+    }
+
+    // If no session, try to refresh from stored token
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+
+    if (refreshError || !refreshData.session) {
       return { isLoggedIn: false, user: null, session: null };
     }
 
     return {
       isLoggedIn: true,
-      user: session.user,
-      session,
+      user: refreshData.session.user,
+      session: refreshData.session,
     };
-  } catch {
+  } catch (err) {
+    console.error('[Refyn Auth] getAuthState error:', err);
     return { isLoggedIn: false, user: null, session: null };
   }
 }

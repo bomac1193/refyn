@@ -46,6 +46,9 @@ export async function saveSupabaseConfig(config: SupabaseConfig): Promise<void> 
   supabaseClient = null;
 }
 
+// Storage key prefix for Supabase auth
+const STORAGE_PREFIX = 'refyn_sb_';
+
 /**
  * Get or create Supabase client
  */
@@ -61,16 +64,33 @@ export async function getSupabase(): Promise<SupabaseClient> {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: false,
+      storageKey: `${STORAGE_PREFIX}auth`,
       storage: {
         getItem: async (key) => {
-          const result = await chrome.storage.local.get(key);
-          return result[key] || null;
+          try {
+            const storageKey = `${STORAGE_PREFIX}${key}`;
+            const result = await chrome.storage.local.get(storageKey);
+            return result[storageKey] || null;
+          } catch (err) {
+            console.error('[Refyn Storage] getItem error:', err);
+            return null;
+          }
         },
         setItem: async (key, value) => {
-          await chrome.storage.local.set({ [key]: value });
+          try {
+            const storageKey = `${STORAGE_PREFIX}${key}`;
+            await chrome.storage.local.set({ [storageKey]: value });
+          } catch (err) {
+            console.error('[Refyn Storage] setItem error:', err);
+          }
         },
         removeItem: async (key) => {
-          await chrome.storage.local.remove(key);
+          try {
+            const storageKey = `${STORAGE_PREFIX}${key}`;
+            await chrome.storage.local.remove(storageKey);
+          } catch (err) {
+            console.error('[Refyn Storage] removeItem error:', err);
+          }
         },
       },
     },

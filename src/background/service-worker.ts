@@ -53,9 +53,12 @@ import { getDeepPreferences } from '@/lib/deepLearning';
 import {
   exportTastePack,
   importTastePack,
-  TASTE_PRESETS,
-  getPresetByName,
+  TASTE_DIMENSIONS,
+  TASTE_LAYERS,
+  getDimensionsByLayer,
+  applyDimensions,
   type TastePack,
+  type TasteLayer,
 } from '@/lib/tasteLibrary';
 import {
   buildVisionPrompt,
@@ -249,13 +252,18 @@ interface ImportTastePackMessage {
   payload: { pack: unknown; mode: 'merge' | 'replace' };
 }
 
-interface GetTastePresetsMessage {
-  type: 'GET_TASTE_PRESETS';
+interface GetTasteLayersMessage {
+  type: 'GET_TASTE_LAYERS';
 }
 
-interface ApplyTastePresetMessage {
-  type: 'APPLY_TASTE_PRESET';
-  payload: { presetName: string; mode: 'merge' | 'replace' };
+interface GetTasteDimensionsMessage {
+  type: 'GET_TASTE_DIMENSIONS';
+  payload?: { layer?: TasteLayer };
+}
+
+interface ApplyTasteDimensionsMessage {
+  type: 'APPLY_TASTE_DIMENSIONS';
+  payload: { dimensionIds: string[]; mode: 'merge' | 'replace' };
 }
 
 type Message =
@@ -287,8 +295,9 @@ type Message =
   | AnalyzeImageMessage
   | ExportTastePackMessage
   | ImportTastePackMessage
-  | GetTastePresetsMessage
-  | ApplyTastePresetMessage;
+  | GetTasteLayersMessage
+  | GetTasteDimensionsMessage
+  | ApplyTasteDimensionsMessage;
 
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener(
@@ -686,27 +695,41 @@ async function handleMessage(message: Message): Promise<unknown> {
       }
     }
 
-    // Taste Library - Get Presets
-    case 'GET_TASTE_PRESETS': {
+    // Taste Library - Get Layers
+    case 'GET_TASTE_LAYERS': {
       return {
         success: true,
-        presets: TASTE_PRESETS.map((p) => ({
-          name: p.name,
-          description: p.description,
-          tags: p.tags,
+        layers: Object.entries(TASTE_LAYERS).map(([id, info]) => ({
+          id,
+          name: info.name,
+          description: info.description,
         })),
       };
     }
 
-    // Taste Library - Apply Preset
-    case 'APPLY_TASTE_PRESET': {
-      const { presetName, mode } = message.payload;
+    // Taste Library - Get Dimensions
+    case 'GET_TASTE_DIMENSIONS': {
+      const layer = message.payload?.layer;
+      const dimensions = layer
+        ? getDimensionsByLayer(layer)
+        : TASTE_DIMENSIONS;
+
+      return {
+        success: true,
+        dimensions: dimensions.map((d) => ({
+          id: d.id,
+          name: d.name,
+          layer: d.layer,
+          description: d.description,
+        })),
+      };
+    }
+
+    // Taste Library - Apply Dimensions
+    case 'APPLY_TASTE_DIMENSIONS': {
+      const { dimensionIds, mode } = message.payload;
       try {
-        const preset = getPresetByName(presetName);
-        if (!preset) {
-          return { success: false, error: 'Preset not found' };
-        }
-        const result = await importTastePack(preset, mode);
+        const result = await applyDimensions(dimensionIds, mode);
         return result;
       } catch (error) {
         return { success: false, error: String(error) };

@@ -602,18 +602,15 @@ function generatePanelHTML(): string {
             </div>
           </div>
 
-          <!-- Taste Library Section -->
+          <!-- Taste Layers Section -->
           <div class="refyn-profile-section refyn-taste-library-section">
             <div class="refyn-profile-header">
-              <span>Taste Library</span>
+              <span>Taste Layers</span>
+              <button class="refyn-apply-layers-btn" id="refyn-apply-layers" title="Apply selected">Apply</button>
             </div>
             <div class="refyn-taste-library-content">
-              <div class="refyn-taste-presets">
-                <label class="refyn-preset-label">Quick Start Presets</label>
-                <select class="refyn-preset-select" id="refyn-preset-select">
-                  <option value="">Select a preset...</option>
-                </select>
-                <button class="refyn-apply-preset-btn" id="refyn-apply-preset">Apply</button>
+              <div class="refyn-taste-layers" id="refyn-taste-layers">
+                <!-- Populated dynamically -->
               </div>
               <div class="refyn-taste-actions">
                 <button class="refyn-taste-btn" id="refyn-export-taste" title="Export your taste profile">
@@ -830,7 +827,7 @@ function setupEventListeners(): void {
   panel.querySelector('#refyn-sync-btn')?.addEventListener('click', handleSync);
 
   // Taste library event listeners
-  panel.querySelector('#refyn-apply-preset')?.addEventListener('click', handleApplyPreset);
+  panel.querySelector('#refyn-apply-layers')?.addEventListener('click', handleApplyLayers);
   panel.querySelector('#refyn-export-taste')?.addEventListener('click', handleExportTaste);
   panel.querySelector('#refyn-import-taste')?.addEventListener('click', () => {
     (panel?.querySelector('#refyn-import-file') as HTMLInputElement)?.click();
@@ -841,8 +838,8 @@ function setupEventListeners(): void {
   // Check auth state on init
   checkAuthState();
 
-  // Load taste presets
-  loadTastePresets();
+  // Load taste layers
+  loadTasteLayers();
 }
 
 // =====================================================
@@ -3010,64 +3007,100 @@ async function handleSync(): Promise<void> {
 // =====================================================
 
 /**
- * Load taste presets into the select dropdown
+ * Load taste layers and dimensions into the UI
  */
-async function loadTastePresets(): Promise<void> {
+async function loadTasteLayers(): Promise<void> {
   try {
-    const response = await chrome.runtime.sendMessage({ type: 'GET_TASTE_PRESETS' });
+    const [layersResponse, dimensionsResponse] = await Promise.all([
+      chrome.runtime.sendMessage({ type: 'GET_TASTE_LAYERS' }),
+      chrome.runtime.sendMessage({ type: 'GET_TASTE_DIMENSIONS' }),
+    ]);
 
-    if (response?.success && response.presets) {
-      const select = panel?.querySelector('#refyn-preset-select') as HTMLSelectElement;
-      if (!select) return;
+    if (!layersResponse?.success || !dimensionsResponse?.success) return;
 
-      // Clear existing options except the first one
-      while (select.options.length > 1) {
-        select.remove(1);
+    const container = panel?.querySelector('#refyn-taste-layers');
+    if (!container) return;
+
+    const layers = layersResponse.layers;
+    const dimensions = dimensionsResponse.dimensions;
+
+    // Group dimensions by layer
+    const dimensionsByLayer: Record<string, typeof dimensions> = {};
+    for (const dim of dimensions) {
+      if (!dimensionsByLayer[dim.layer]) {
+        dimensionsByLayer[dim.layer] = [];
       }
-
-      // Add presets
-      for (const preset of response.presets) {
-        const option = document.createElement('option');
-        option.value = preset.name;
-        option.textContent = preset.name;
-        option.title = preset.description;
-        select.appendChild(option);
-      }
+      dimensionsByLayer[dim.layer].push(dim);
     }
+
+    // Build the UI
+    let html = '';
+    for (const layer of layers as Array<{ id: string; name: string; description: string }>) {
+      const layerDims = dimensionsByLayer[layer.id] || [];
+      html += `
+        <div class="refyn-taste-layer" data-layer="${layer.id}">
+          <div class="refyn-layer-label">${layer.name}</div>
+          <div class="refyn-layer-options">
+            ${layerDims.map((dim: { id: string; name: string; description: string }) => `
+              <button class="refyn-dim-btn" data-dim="${dim.id}" title="${dim.description}">
+                ${dim.name}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
+
+    // Add click handlers for dimension buttons
+    container.querySelectorAll('.refyn-dim-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('selected');
+      });
+    });
   } catch (error) {
-    console.error('[Refyn] Failed to load presets:', error);
+    console.error('[Refyn] Failed to load taste layers:', error);
   }
 }
 
 /**
- * Handle applying a taste preset
+ * Handle applying selected taste dimensions
  */
-async function handleApplyPreset(): Promise<void> {
-  const select = panel?.querySelector('#refyn-preset-select') as HTMLSelectElement;
-  const presetName = select?.value;
+async function handleApplyLayers(): Promise<void> {
+  const container = panel?.querySelector('#refyn-taste-layers');
+  if (!container) return;
 
-  if (!presetName) {
-    showToast('Select a preset first');
+  const selectedDims = Array.from(container.querySelectorAll('.refyn-dim-btn.selected'))
+    .map(btn => (btn as HTMLElement).dataset.dim)
+    .filter(Boolean) as string[];
+
+  if (selectedDims.length === 0) {
+    showToast('Select at least one dimension');
     return;
   }
 
-  const applyBtn = panel?.querySelector('#refyn-apply-preset') as HTMLButtonElement;
+  const applyBtn = panel?.querySelector('#refyn-apply-layers') as HTMLButtonElement;
   if (applyBtn) applyBtn.textContent = '...';
 
   try {
     const response = await chrome.runtime.sendMessage({
-      type: 'APPLY_TASTE_PRESET',
-      payload: { presetName, mode: 'merge' },
+      type: 'APPLY_TASTE_DIMENSIONS',
+      payload: { dimensionIds: selectedDims, mode: 'merge' },
     });
 
     if (response?.success) {
-      showToast(`Applied "${presetName}" preset`);
-      select.value = '';
+      const names = selectedDims.join(' + ');
+      showToast(`Applied: ${names}`);
+      // Clear selections
+      container.querySelectorAll('.refyn-dim-btn.selected').forEach(btn => {
+        btn.classList.remove('selected');
+      });
     } else {
-      showToast(response?.error || 'Failed to apply preset', 'error');
+      showToast(response?.error || 'Failed to apply', 'error');
     }
   } catch (error) {
-    showToast('Failed to apply preset', 'error');
+    showToast('Failed to apply dimensions', 'error');
   }
 
   if (applyBtn) applyBtn.textContent = 'Apply';
