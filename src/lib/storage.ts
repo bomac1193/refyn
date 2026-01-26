@@ -133,7 +133,13 @@ export async function getSavedPrompts(): Promise<PromptRecord[]> {
 export async function savePrompt(
   content: string,
   platform: Platform,
-  tags: string[] = []
+  tags: string[] = [],
+  imageData?: {
+    outputImageUrl?: string;
+    referenceImages?: string[];
+    imagePrompts?: string[];
+    extractedParams?: Record<string, string | undefined>;
+  }
 ): Promise<PromptRecord> {
   const saved = await getSavedPrompts();
   const record: PromptRecord = {
@@ -142,6 +148,10 @@ export async function savePrompt(
     platform,
     createdAt: new Date(),
     tags,
+    outputImageUrl: imageData?.outputImageUrl,
+    referenceImages: imageData?.referenceImages,
+    imagePrompts: imageData?.imagePrompts,
+    extractedParams: imageData?.extractedParams,
   };
 
   await chrome.storage.local.set({
@@ -168,6 +178,24 @@ export async function updateSavedPrompt(
       p.id === id ? { ...p, ...updates } : p
     ),
   });
+}
+
+export async function updatePromptRating(id: string, rating: number): Promise<void> {
+  await updateSavedPrompt(id, { rating: Math.max(1, Math.min(5, rating)) });
+}
+
+export async function updatePromptFeedback(
+  id: string,
+  feedback: PromptRecord['aiFeedback']
+): Promise<void> {
+  await updateSavedPrompt(id, { aiFeedback: feedback });
+}
+
+export async function updatePromptLiked(
+  id: string,
+  liked: boolean | undefined
+): Promise<void> {
+  await updateSavedPrompt(id, { liked });
 }
 
 // Lineage Tree Management

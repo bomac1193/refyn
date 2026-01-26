@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Expand, Palette, Settings2, Dna } from 'lucide-react';
+import { Sparkles, Expand, Palette, Settings2, Dna, Zap } from 'lucide-react';
 import type { OptimizationMode } from '@/shared/types';
 import { cn } from '@/shared/utils';
 
@@ -16,6 +16,7 @@ const modes: {
   label: string;
   icon: React.ReactNode;
   description: string;
+  isCrazy?: boolean;
 }[] = [
   {
     id: 'enhance',
@@ -41,6 +42,13 @@ const modes: {
     icon: <Settings2 className="w-4 h-4" />,
     description: 'Add platform parameters',
   },
+  {
+    id: 'crazy',
+    label: 'Crazy',
+    icon: <Zap className="w-4 h-4" />,
+    description: 'Hidden platform tricks & magic triggers',
+    isCrazy: true,
+  },
 ];
 
 export const QuickActions: React.FC<QuickActionsProps> = ({
@@ -64,8 +72,12 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
               'flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-md',
               'text-xs font-medium transition-all',
               selectedMode === mode.id
-                ? 'bg-refyn-hover text-zinc-100 shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-refyn-hover/50',
+                ? mode.isCrazy
+                  ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 text-pink-400 shadow-sm border border-pink-500/30'
+                  : 'bg-refyn-hover text-zinc-100 shadow-sm'
+                : mode.isCrazy
+                  ? 'text-purple-400 hover:text-pink-400 hover:bg-purple-500/20 border border-purple-500/20'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-refyn-hover/50',
               (loading || disabled) && 'opacity-50 cursor-not-allowed'
             )}
           >

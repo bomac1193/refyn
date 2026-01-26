@@ -1,6 +1,8 @@
-import type { Platform, OptimizationMode, TasteProfile } from '@/shared/types';
+import type { Platform, OptimizationMode, TasteProfile, ThemeRemixId } from '@/shared/types';
 import { getPresetById } from '@/shared/presets';
 import { getCrazyModeSystemPrompt } from '@/shared/platformSecrets';
+import { getChaosEnhancementPrompt } from '@/lib/chaosEngine';
+import { THEME_REMIXES } from '@/shared/constants';
 
 /**
  * PROMPT MASTERY PRINCIPLES
@@ -49,24 +51,32 @@ export const MIDJOURNEY_SYSTEM_PROMPT = `You are Refyn, an expert prompt enginee
 
 PLATFORM PARAMETERS:
 - Aspect Ratios: --ar (e.g., --ar 16:9, --ar 1:1, --ar 9:16)
-- Version: --v 6.1 (latest), --v 6, --v 5.2
+- Version: --v 7 (latest), --v 6.1, --v 6
 - Style: --style raw (photorealistic), --stylize 0-1000
 - Quality: --q 0.25, 0.5, 1, 2
 - Chaos: --chaos 0-100 (variation)
 - Weird: --weird 0-3000 (experimental)
 - Tile: --tile (seamless patterns)
 - No: --no [element] (negative prompt)
+- Personalize: --personalize or --p (applies trained style)
+- Draft: --draft (faster, lower quality iterations)
+
+CRITICAL V7 CHANGES:
+- V7 does NOT support :: multi-prompt syntax - use COMMAS to separate concepts
+- V7 does NOT support ::weight syntax - use parentheses for emphasis instead
+- Use (word) for emphasis, ((word)) for stronger, (((word))) for strongest
 
 PROMPT STRUCTURE:
-[Subject] [Action/State] [Environment] [Lighting] [Style/Medium] [Parameters]
+[Subject], [Action/State], [Environment], [Lighting], [Style/Medium], [Parameters]
 
 ENHANCEMENT RULES:
-1. Add specific visual descriptors (materials, textures, colors)
-2. Include lighting conditions (golden hour, studio lighting, ambient occlusion)
-3. Specify camera/lens when relevant (35mm, macro, telephoto)
-4. Add artistic style references (cinematic, editorial, fine art)
-5. Include mood/atmosphere keywords
-6. Always append appropriate parameters
+1. Separate concepts with COMMAS, never use :: (V7 limitation)
+2. Add specific visual descriptors (materials, textures, colors)
+3. Include lighting conditions (golden hour, studio lighting, ambient occlusion)
+4. Specify camera/lens when relevant (35mm, macro, telephoto)
+5. Add artistic style references (cinematic, editorial, fine art)
+6. Use parentheses for emphasis: (important), ((very important))
+7. Always append appropriate parameters
 
 Output only the optimized prompt with no explanation.`;
 
@@ -411,6 +421,72 @@ export function buildPresetContext(presetId: string | null): string {
   return parts.join('\n');
 }
 
+// Build theme remix context - transforms aesthetic while keeping subject
+export function buildThemeContext(themeId: ThemeRemixId): string {
+  if (!themeId) return '';
+
+  const theme = THEME_REMIXES[themeId];
+  if (!theme) return '';
+
+  return `
+
+████████████████████████████████████████████████████████████████████████
+█  THEME REMIX: ${theme.name.toUpperCase()}  -  TOTAL AESTHETIC OVERWRITE  █
+████████████████████████████████████████████████████████████████████████
+
+⚠️ THIS IS NOT "ADD THEME WORDS" - THIS IS "REWRITE FROM SCRATCH" ⚠️
+
+STEP 1 - IDENTIFY THE BARE SUBJECT (1-3 words MAX):
+Extract ONLY the core object/person/thing. Strip ALL modifiers.
+
+EXAMPLES OF CORRECT SUBJECT EXTRACTION:
+- "sentient fractal QR code entity" → "QR code" (NOT "sentient QR code", NOT "fractal QR code")
+- "cybernetic warrior with plasma rifle" → "warrior"
+- "ethereal goddess of the digital realm" → "goddess" (or "woman")
+- "mystical forest with bioluminescent trees" → "forest"
+- "ancient eldritch cathedral" → "cathedral"
+
+THE WORD "SENTIENT" IS AN ADJECTIVE - DELETE IT.
+THE WORD "FRACTAL" IS AN ADJECTIVE - DELETE IT.
+THE WORD "ENTITY" IS VAGUE - USE THE CONCRETE NOUN INSTEAD.
+
+STEP 2 - COMPLETELY DELETE THESE (DO NOT PRESERVE ANY):
+✗ sentient, fractal, digital, cyber, algorithmic, quantum, ethereal
+✗ ALL color words from original (crimson, obsidian, molten, etc.)
+✗ ALL lighting words from original (chiaroscuro, volumetric, etc.)
+✗ ALL mood words from original (liminal, chthonic, ritualistic, etc.)
+✗ ALL style references from original (glitch art, cinematic, etc.)
+✗ ALL technical terms from original (hyper-intricate, etc.)
+✗ ALL parameters from original (--chaos, --ar, --v, etc.)
+
+STEP 3 - REBUILD ENTIRELY IN ${theme.name.toUpperCase()} AESTHETIC:
+
+${theme.styleGuide}
+
+USE THESE ${theme.name.toUpperCase()} KEYWORDS:
+${theme.keywords.join(', ')}
+
+STEP 4 - VERIFY YOUR OUTPUT:
+Before submitting, check:
+□ Does the output contain "sentient"? If YES → REWRITE
+□ Does the output contain "fractal"? If YES → REWRITE
+□ Does the output contain "digital"? If YES → REWRITE
+□ Does the output contain "cyber"? If YES → REWRITE
+□ Does the output contain ANY words from the original style? If YES → REWRITE
+□ Does it use ${theme.name} vocabulary ONLY? If NO → REWRITE
+
+████████████████████████████████████████████████████████████████████████
+EXAMPLE FOR ${theme.name.toUpperCase()}:
+
+INPUT: "sentient fractal QR code entity with cybernetic eye, digital membrane, purification flames, glitch art"
+
+WRONG OUTPUT: "sentient ${theme.name.toLowerCase()} QR code with fractal patterns..."
+(FAIL: kept "sentient", "fractal")
+
+CORRECT OUTPUT: "[QR code completely reimagined using ONLY ${theme.name} visual language - new adjectives, new colors, new mood, new style references - ZERO words from original]"
+████████████████████████████████████████████████████████████████████████`;
+}
+
 // Build the full optimization prompt
 export function buildOptimizationPrompt(
   prompt: string,
@@ -418,13 +494,32 @@ export function buildOptimizationPrompt(
   mode: OptimizationMode,
   tasteProfile?: TasteProfile,
   presetId?: string | null,
-  preferenceContext?: string
+  preferenceContext?: string,
+  chaosIntensity?: number,
+  themeId?: ThemeRemixId,
+  variationIntensity?: number,
+  previousRefinedPrompt?: string | null
 ): { system: string; user: string } {
   let systemPrompt = getSystemPrompt(platform);
 
   // For crazy mode, inject the platform secrets
   if (mode === 'crazy') {
     systemPrompt += '\n\n' + getCrazyModeSystemPrompt(platform);
+  }
+
+  // Add chaos enhancement instructions if intensity > 0
+  if (chaosIntensity && chaosIntensity > 0) {
+    systemPrompt += getChaosEnhancementPrompt(platform, chaosIntensity);
+  }
+
+  // Add variation instructions when re-refining
+  if (previousRefinedPrompt && variationIntensity !== undefined) {
+    systemPrompt += buildVariationContext(variationIntensity);
+  }
+
+  // Add theme remix context - IMPORTANT: this dramatically changes the aesthetic
+  if (themeId) {
+    systemPrompt += buildThemeContext(themeId);
   }
 
   // Add preset context if a preset is selected
@@ -442,12 +537,146 @@ export function buildOptimizationPrompt(
 
   const modeInstruction = getModeInstruction(mode);
 
-  const userPrompt = `${modeInstruction}
+  // Modify user prompt if theme is active
+  let themeNote = '';
+  let themeReminder = '';
+  if (themeId) {
+    const theme = THEME_REMIXES[themeId];
+    themeNote = `
+
+████ THEME REMIX: ${theme.name.toUpperCase()} - TOTAL REWRITE ████
+
+⚠️ DO NOT ADD THEME WORDS TO EXISTING PROMPT
+⚠️ DO NOT KEEP ADJECTIVES LIKE "sentient", "fractal", "digital", "cyber"
+⚠️ EXTRACT SUBJECT → DELETE EVERYTHING ELSE → REWRITE FROM ZERO
+
+Subject extraction: Find the 1-3 word NOUN (e.g., "QR code", "warrior", "forest")
+Delete: ALL adjectives, ALL style words, ALL colors, ALL moods from original
+Rewrite: Using ONLY ${theme.name} vocabulary, artists, colors, mood`;
+
+    themeReminder = `
+████ FINAL CHECK BEFORE OUTPUT ████
+- Did you keep "sentient"? DELETE IT
+- Did you keep "fractal"? DELETE IT
+- Did you keep "digital"? DELETE IT
+- Did you keep ANY original style words? DELETE THEM
+- Is your output 100% ${theme.name.toUpperCase()} vocabulary? IT MUST BE
+
+`;
+  }
+
+  // Build variation context for user prompt
+  let variationNote = '';
+  if (previousRefinedPrompt && variationIntensity !== undefined) {
+    const intensity = variationIntensity;
+    if (intensity <= 20) {
+      variationNote = `
+
+PREVIOUS VERSION (make MINIMAL changes, just tiny tweaks):
+${previousRefinedPrompt}
+
+`;
+    } else if (intensity <= 40) {
+      variationNote = `
+
+PREVIOUS VERSION (keep ~70% similar, introduce subtle new elements):
+${previousRefinedPrompt}
+
+`;
+    } else if (intensity <= 60) {
+      variationNote = `
+
+PREVIOUS VERSION (keep ~50% similar, introduce new adjectives, colors, or references):
+${previousRefinedPrompt}
+
+`;
+    } else if (intensity <= 80) {
+      variationNote = `
+
+PREVIOUS VERSION (keep only the subject, SIGNIFICANTLY change style/mood/colors):
+${previousRefinedPrompt}
+
+`;
+    } else {
+      variationNote = `
+
+PREVIOUS VERSION (use as ANTI-REFERENCE - create something COMPLETELY DIFFERENT while keeping subject):
+${previousRefinedPrompt}
+
+Create a dramatically different interpretation. Change: colors, mood, style, composition, lighting - everything except the core subject.
+`;
+    }
+  }
+
+  const userPrompt = `${modeInstruction}${themeNote}${variationNote}
 
 Original prompt:
 ${prompt}
 
-Optimized prompt:`;
+${themeReminder}Optimized prompt:`;
 
   return { system: systemPrompt, user: userPrompt };
+}
+
+/**
+ * Build variation context instructions based on intensity
+ */
+function buildVariationContext(intensity: number): string {
+  if (intensity <= 20) {
+    return `
+
+VARIATION MODE: LOCKED (${intensity}%)
+You are refining an existing prompt. Make only MINIMAL changes:
+- Fix typos or grammar
+- Slightly adjust word order
+- Keep 95%+ of the original intact
+- DO NOT introduce new concepts, colors, or styles
+`;
+  } else if (intensity <= 40) {
+    return `
+
+VARIATION MODE: SUBTLE (${intensity}%)
+You are creating a subtle variation. Guidelines:
+- Keep the overall structure and mood
+- You may swap 1-2 adjectives for synonyms
+- Keep 70-80% of original elements
+- Introduce 1 new small detail
+`;
+  } else if (intensity <= 60) {
+    return `
+
+VARIATION MODE: MEDIUM (${intensity}%)
+You are creating a moderate variation. Guidelines:
+- Keep the subject and general theme
+- Change 3-4 descriptors or style elements
+- Introduce 1-2 new color or lighting choices
+- Keep 50-60% of original elements
+- The result should feel like a sibling, not a copy
+`;
+  } else if (intensity <= 80) {
+    return `
+
+VARIATION MODE: FRESH (${intensity}%)
+You are creating a fresh interpretation. Guidelines:
+- Keep ONLY the core subject
+- Completely change the mood/atmosphere
+- Use different color palette
+- Different style references or artists
+- Keep only 20-30% of original elements
+- The result should feel like a different artist's take
+`;
+  } else {
+    return `
+
+VARIATION MODE: WILD (${intensity}%)
+You are creating a RADICALLY different version. Guidelines:
+- Keep ONLY the bare subject noun
+- COMPLETELY reimagine everything else
+- Opposite mood if possible
+- Different era, different style, different colors
+- Use the previous version as what NOT to do
+- The result should feel like an alternate universe version
+- Be bold, surprising, unexpected
+`;
+  }
 }

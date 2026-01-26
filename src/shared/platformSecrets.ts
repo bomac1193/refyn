@@ -83,7 +83,7 @@ export const PLATFORM_SECRETS: Record<Platform, PlatformSecret> = {
       'prismatic',
     ],
 
-    structureTemplate: '[subject] :: [style] :: [lighting] :: [mood] :: [quality] --ar [ratio] --v 6.1 --s [stylize]',
+    structureTemplate: '[subject], [style], [lighting], [mood], [quality] --ar [ratio] --v 7 --s [stylize]',
 
     qualityBoosters: [
       'ultra-detailed', 'intricate details', '8K resolution', 'masterpiece',
@@ -97,16 +97,17 @@ export const PLATFORM_SECRETS: Record<Platform, PlatformSecret> = {
     ],
 
     hiddenParams: [
-      '--v 6.1', '--ar 16:9', '--s 750', '--c 50', '--w 250',
-      '--q 2', '--style raw', '--no blur ugly deformed'
+      '--v 7', '--ar 16:9', '--s 750', '--c 50', '--w 250',
+      '--q 2', '--style raw', '--exp', '--no blur ugly deformed'
     ],
 
     tips: [
-      'Use :: to separate and weight concepts (subject::2 background::1)',
+      'V7 does NOT support :: multi-prompts - use commas to separate concepts',
       '--chaos adds variation, --weird adds experimental elements',
-      'Double parentheses ((word)) for strong emphasis',
+      'Use parentheses for emphasis: (word), ((stronger)), (((strongest)))',
       'End with quality boosters for better results',
-      '--style raw removes MJ beautification for more raw results'
+      '--style raw removes MJ beautification for more raw results',
+      '--personalize or --p applies your trained style preferences'
     ]
   },
 

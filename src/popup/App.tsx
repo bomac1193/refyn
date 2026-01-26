@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Star, History, ExternalLink, Download, Upload, RefreshCw, PanelRightOpen } from 'lucide-react';
+import { Star, History, ExternalLink, Download, Upload, RefreshCw, PanelRightOpen, User, Sparkles } from 'lucide-react';
 import { Header } from './components/Header';
 import { PlatformSelector } from './components/PlatformSelector';
 import { PromptInput } from './components/PromptInput';
 import { PromptOutput } from './components/PromptOutput';
 import { QuickActions } from './components/QuickActions';
+import { ChaosSlider } from './components/ChaosSlider';
 import { GenomeTags } from './components/GenomeTags';
 import { SettingsPanel } from './components/SettingsPanel';
 import { HistoryItem } from './components/HistoryItem';
@@ -21,9 +22,16 @@ import {
 import { STORAGE_KEYS, PLATFORMS } from '@/shared/constants';
 import { getPresetsForCategory } from '@/shared/presets';
 import type { StylePreset } from '@/shared/types';
-import type { Platform, OptimizationMode, GenomeTag, PromptRecord } from '@/shared/types';
+import type { Platform, OptimizationMode, GenomeTag, PromptRecord, TasteProfile } from '@/shared/types';
 
-type TabType = 'refyn' | 'history' | 'saved';
+type TabType = 'refyn' | 'history' | 'saved' | 'profile';
+
+interface DeepPreference {
+  keyword: string;
+  category: string;
+  score: number;
+  lastSeen: string;
+}
 
 /**
  * Strip --weird parameter from Midjourney prompts for moodboard compatibility
@@ -57,6 +65,10 @@ const App: React.FC = () => {
   const [isMoodboardMode, setIsMoodboardMode] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [availablePresets, setAvailablePresets] = useState<StylePreset[]>([]);
+  const [chaosIntensity, setChaosIntensity] = useState(0);
+  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(null);
+  const [deepPreferences, setDeepPreferences] = useState<DeepPreference[]>([]);
+  const [profileStats, setProfileStats] = useState({ refined: 0, saved: 0, liked: 0, disliked: 0 });
 
   // Initialize
   useEffect(() => {
@@ -93,10 +105,11 @@ const App: React.FC = () => {
     setSaved(savedData);
 
     // Load last used platform and mode from storage
-    const stored = await chrome.storage.local.get([STORAGE_KEYS.LAST_PLATFORM, STORAGE_KEYS.LAST_MODE, 'refyn-moodboard-mode']);
+    const stored = await chrome.storage.local.get([STORAGE_KEYS.LAST_PLATFORM, STORAGE_KEYS.LAST_MODE, 'refyn-moodboard-mode', 'refyn-chaos-intensity']);
     const lastPlatform = stored[STORAGE_KEYS.LAST_PLATFORM] as Platform | undefined;
     const lastMode = stored[STORAGE_KEYS.LAST_MODE] as OptimizationMode | undefined;
     const moodboardMode = stored['refyn-moodboard-mode'] as boolean | undefined;
+    const savedChaosIntensity = stored['refyn-chaos-intensity'] as number | undefined;
 
     if (lastPlatform) {
       setPlatform(lastPlatform);
@@ -106,6 +119,9 @@ const App: React.FC = () => {
     }
     if (moodboardMode) {
       setIsMoodboardMode(moodboardMode);
+    }
+    if (typeof savedChaosIntensity === 'number') {
+      setChaosIntensity(savedChaosIntensity);
     }
 
     // Detect current platform and auto-grab prompt
@@ -166,6 +182,7 @@ const App: React.FC = () => {
           prompt: inputPrompt,
           platform,
           mode,
+          chaosIntensity,
           tasteProfile,
           presetId: selectedPreset,
         },
@@ -196,7 +213,7 @@ const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [inputPrompt, platform, mode, loading, hasApiKey, isMoodboardMode, selectedPreset]);
+  }, [inputPrompt, platform, mode, loading, hasApiKey, isMoodboardMode, selectedPreset, chaosIntensity]);
 
   // Handle moodboard toggle
   const handleMoodboardToggle = (enabled: boolean) => {
@@ -212,6 +229,12 @@ const App: React.FC = () => {
     } else {
       chrome.storage.local.remove('refyn-last-preset');
     }
+  };
+
+  // Handle chaos intensity change
+  const handleChaosIntensityChange = (intensity: number) => {
+    setChaosIntensity(intensity);
+    chrome.storage.local.set({ 'refyn-chaos-intensity': intensity });
   };
 
   // Handle save to library
@@ -275,6 +298,63 @@ const App: React.FC = () => {
     }
   };
 
+  // Load profile data
+  const loadProfile = async () => {
+    try {
+      // Load deep preferences
+      const deepPrefsResponse = await chrome.runtime.sendMessage({ type: 'GET_DEEP_PREFERENCES' });
+      if (deepPrefsResponse?.success && deepPrefsResponse.data) {
+        const prefs = deepPrefsResponse.data;
+
+        // Extract top keywords from all categories
+        const allKeywords: DeepPreference[] = [];
+        if (prefs.keywordScores) {
+          for (const [category, keywords] of Object.entries(prefs.keywordScores)) {
+            for (const [keyword, score] of Object.entries(keywords as Record<string, number>)) {
+              if (Math.abs(score) > 0.5) {
+                allKeywords.push({
+                  keyword,
+                  category,
+                  score,
+                  lastSeen: prefs.stats?.lastUpdated || '',
+                });
+              }
+            }
+          }
+        }
+
+        // Sort by absolute score
+        allKeywords.sort((a, b) => Math.abs(b.score) - Math.abs(a.score));
+        setDeepPreferences(allKeywords.slice(0, 20));
+
+        // Set stats
+        if (prefs.stats) {
+          setProfileStats({
+            refined: history.length,
+            saved: saved.length,
+            liked: prefs.stats.totalLikes || 0,
+            disliked: prefs.stats.totalDislikes || 0,
+          });
+        }
+      }
+
+      // Also load taste profile
+      const tasteResponse = await chrome.runtime.sendMessage({ type: 'GET_TASTE_PROFILE' });
+      if (tasteResponse?.success && tasteResponse.data) {
+        setTasteProfile(tasteResponse.data);
+      }
+    } catch (error) {
+      console.error('[Refyn] Failed to load profile:', error);
+    }
+  };
+
+  // Load profile when switching to profile tab
+  useEffect(() => {
+    if (activeTab === 'profile') {
+      loadProfile();
+    }
+  }, [activeTab, history.length, saved.length]);
+
   // Open dashboard
   const openDashboard = () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/index.html') });
@@ -331,6 +411,17 @@ const App: React.FC = () => {
         >
           <Star className="w-4 h-4" />
           Saved
+        </button>
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+            activeTab === 'profile'
+              ? 'text-refyn-cyan border-b-2 border-refyn-cyan'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          <User className="w-4 h-4" />
+          Profile
         </button>
       </div>
 
@@ -424,6 +515,13 @@ const App: React.FC = () => {
               onRefyn={handleRefyn}
               loading={loading}
               disabled={!inputPrompt.trim() || !hasApiKey}
+            />
+
+            {/* Chaos Intensity Slider */}
+            <ChaosSlider
+              value={chaosIntensity}
+              onChange={handleChaosIntensityChange}
+              disabled={loading}
             />
 
             {/* Style Presets */}
@@ -560,6 +658,141 @@ const App: React.FC = () => {
                     isSaved
                   />
                 ))
+            )}
+          </div>
+        )}
+
+        {activeTab === 'profile' && (
+          <div className="p-4 space-y-4">
+            {/* Profile Header */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-zinc-200">Taste Profile</h3>
+              <button
+                onClick={loadProfile}
+                className="flex items-center gap-1 px-2 py-1 text-xs text-refyn-cyan hover:bg-refyn-cyan/10 rounded transition-colors"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Refresh
+              </button>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-4 gap-2">
+              <div className="bg-refyn-active/30 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-refyn-cyan">{profileStats.refined}</div>
+                <div className="text-xs text-zinc-500">Refined</div>
+              </div>
+              <div className="bg-refyn-active/30 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-purple-400">{profileStats.saved}</div>
+                <div className="text-xs text-zinc-500">Saved</div>
+              </div>
+              <div className="bg-refyn-active/30 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-green-400">{profileStats.liked}</div>
+                <div className="text-xs text-zinc-500">Liked</div>
+              </div>
+              <div className="bg-refyn-active/30 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-red-400">{profileStats.disliked}</div>
+                <div className="text-xs text-zinc-500">Disliked</div>
+              </div>
+            </div>
+
+            {/* Taste Profile Keywords */}
+            {deepPreferences.length > 0 ? (
+              <div className="space-y-3">
+                {/* Liked Keywords */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-green-400" />
+                    <span className="text-xs font-medium text-zinc-300">Keywords You Like</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {deepPreferences
+                      .filter((p) => p.score > 0)
+                      .slice(0, 10)
+                      .map((pref, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-1 text-xs rounded-full bg-green-500/10 text-green-400 border border-green-500/20"
+                          title={`${pref.category}: ${pref.score.toFixed(1)}`}
+                        >
+                          {pref.keyword}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Disliked Keywords */}
+                {deepPreferences.filter((p) => p.score < 0).length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 h-4 text-red-400">✕</span>
+                      <span className="text-xs font-medium text-zinc-300">Keywords to Avoid</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {deepPreferences
+                        .filter((p) => p.score < 0)
+                        .slice(0, 8)
+                        .map((pref, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-1 text-xs rounded-full bg-red-500/10 text-red-400 border border-red-500/20"
+                            title={`${pref.category}: ${pref.score.toFixed(1)}`}
+                          >
+                            {pref.keyword}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Categories */}
+                <div className="space-y-2">
+                  <span className="text-xs font-medium text-zinc-400">Top Categories</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from(new Set(deepPreferences.slice(0, 10).map((p) => p.category))).map(
+                      (category) => (
+                        <span
+                          key={category}
+                          className="px-2 py-1 text-xs rounded-full bg-refyn-active/50 text-zinc-300"
+                        >
+                          {category}
+                        </span>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-zinc-500">
+                <User className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Your taste profile builds as you use Refyn</p>
+                <p className="text-xs mt-1">Like/dislike results to train your preferences</p>
+              </div>
+            )}
+
+            {/* Taste Profile from simple system */}
+            {tasteProfile && (tasteProfile.visual?.style?.length || tasteProfile.visual?.lighting?.length) && (
+              <div className="space-y-2 pt-2 border-t border-refyn-active/30">
+                <span className="text-xs font-medium text-zinc-400">Style Preferences</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {tasteProfile.visual?.style?.slice(0, 4).map((style, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-1 text-xs rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                    >
+                      {style}
+                    </span>
+                  ))}
+                  {tasteProfile.visual?.lighting?.slice(0, 3).map((light, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-1 text-xs rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+                    >
+                      {light}
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}

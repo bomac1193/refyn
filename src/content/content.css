@@ -173,13 +173,13 @@
 }
 
 .refyn-panel-container {
-  width: 300px;
+  width: 280px;
   max-height: calc(100vh - 40px);
   background: rgba(10, 10, 12, 0.98);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
+  border-radius: 12px;
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(0, 240, 255, 0.1),
@@ -188,6 +188,12 @@
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
+  font-size: 12px;
+}
+
+/* Expanded state - when showing output */
+.refyn-panel-container.refyn-expanded {
+  width: 420px;
 }
 
 /* Responsive sizing for smaller screens */
@@ -358,6 +364,57 @@
   color: #F4F4F5;
 }
 
+/* Tab Navigation */
+.refyn-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 8px;
+  background: rgba(18, 18, 20, 0.6);
+}
+
+.refyn-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: #71717A;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.refyn-tab:hover {
+  color: #A1A1AA;
+}
+
+.refyn-tab.active {
+  color: #00F0FF;
+  border-bottom-color: #00F0FF;
+}
+
+.refyn-tab svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Tab Content */
+.refyn-tab-content {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.refyn-tab-content.active {
+  display: flex;
+}
+
 /* Body */
 .refyn-panel-body {
   padding: 10px;
@@ -365,7 +422,143 @@
   flex-direction: column;
   overflow-y: auto;
   flex: 1;
-  gap: 16px;
+  gap: 10px;
+}
+
+/* Compact Controls Row */
+.refyn-compact-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+}
+
+.refyn-sync-mini {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.refyn-sync-toggle-mini {
+  padding: 3px 8px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #71717A;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-sync-toggle-mini.active {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00F0FF;
+}
+
+.refyn-moodboard-mini {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(168, 85, 247, 0.1);
+  border-radius: 10px;
+  color: #A1A1AA;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.refyn-moodboard-mini input {
+  width: 12px;
+  height: 12px;
+}
+
+/* Compact Chaos Slider */
+/* Sliders Section */
+.refyn-sliders-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(26, 26, 30, 0.6);
+  border-radius: 8px;
+}
+
+.refyn-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refyn-slider-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 75px;
+  max-width: 75px;
+  font-size: 9px;
+}
+
+.refyn-slider-name {
+  color: #71717A;
+  font-weight: 500;
+  font-size: 8px;
+}
+
+.refyn-chaos-level,
+.refyn-variation-level {
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.refyn-sliders-section .refyn-chaos-slider,
+.refyn-sliders-section .refyn-variation-slider {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.refyn-variation-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #A855F7, #EC4899);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 6px rgba(168, 85, 247, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.refyn-variation-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 2px 10px rgba(168, 85, 247, 0.6);
+}
+
+.refyn-variation-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #A855F7, #EC4899);
+  cursor: pointer;
+  border: none;
+}
+
+/* Compact Mode Selector */
+.refyn-mode-selector-compact {
+  display: flex;
+  gap: 1px;
+  padding: 3px;
+  background: rgba(26, 26, 30, 0.8);
+  border-radius: 6px;
+  width: 100%;
 }
 
 /* =====================================================
@@ -525,6 +718,148 @@
   font-style: italic;
 }
 
+/* =====================================================
+   CHAOS INTENSITY SLIDER
+   ===================================================== */
+
+.refyn-chaos-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(26, 26, 30, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.refyn-chaos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.refyn-chaos-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #A1A1AA;
+}
+
+.refyn-chaos-label svg {
+  color: #71717A;
+  transition: color 0.2s ease;
+}
+
+.refyn-chaos-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.refyn-chaos-level {
+  font-size: 10px;
+  font-weight: 600;
+  color: #71717A;
+  transition: color 0.2s ease;
+}
+
+.refyn-chaos-number {
+  font-size: 10px;
+  font-weight: 500;
+  color: #52525B;
+  font-variant-numeric: tabular-nums;
+  min-width: 20px;
+  text-align: right;
+}
+
+.refyn-chaos-slider-container {
+  position: relative;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.refyn-chaos-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+}
+
+.refyn-chaos-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.refyn-chaos-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+.refyn-chaos-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.refyn-chaos-track {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 6px;
+  border-radius: 3px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, #71717A, #52525B);
+  pointer-events: none;
+  z-index: 1;
+  transition: background 0.3s ease;
+}
+
+.refyn-chaos-labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.refyn-chaos-labels span {
+  font-size: 9px;
+  color: #52525B;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.refyn-chaos-labels span:hover {
+  color: #A1A1AA;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Chaos level color variations */
+.refyn-chaos-section[data-level="clean"] .refyn-chaos-label svg { color: #71717A; }
+.refyn-chaos-section[data-level="refined"] .refyn-chaos-label svg { color: #3B82F6; }
+.refyn-chaos-section[data-level="creative"] .refyn-chaos-label svg { color: #06B6D4; }
+.refyn-chaos-section[data-level="wild"] .refyn-chaos-label svg { color: #EAB308; }
+.refyn-chaos-section[data-level="unhinged"] .refyn-chaos-label svg { color: #EF4444; }
+
 /* Mode Selector */
 .refyn-mode-selector {
   display: grid;
@@ -539,16 +874,22 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 6px 4px;
+  justify-content: center;
+  gap: 2px;
+  padding: 5px 2px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: #71717A;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .refyn-mode-btn svg {
@@ -839,8 +1180,14 @@
   color: #F4F4F5;
   font-size: 13px;
   line-height: 1.6;
-  max-height: 180px;
+  max-height: 300px;
   overflow-y: auto;
+  word-break: break-word;
+}
+
+/* Expanded output - more room to see the full prompt */
+.refyn-expanded .refyn-output-text {
+  max-height: 450px;
 }
 
 /* Loading State */
@@ -1653,7 +2000,10 @@
     0 0 0 1px rgba(239, 68, 68, 0.1),
     0 0 30px rgba(239, 68, 68, 0.05);
   padding: 12px;
-  width: 260px;
+  width: 240px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
 }
 
 .refyn-trash-feedback-header {
@@ -1838,91 +2188,100 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(34, 197, 94, 0.1),
-    0 0 30px rgba(34, 197, 94, 0.05);
-  padding: 12px;
-  width: 280px;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  padding: 10px;
+  width: 200px;
+  max-width: calc(100vw - 40px);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* Dark scrollbar for like feedback */
+.refyn-like-feedback-inner::-webkit-scrollbar {
+  width: 4px;
+}
+
+.refyn-like-feedback-inner::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.refyn-like-feedback-inner::-webkit-scrollbar-thumb {
+  background: rgba(82, 82, 91, 0.5);
+  border-radius: 2px;
+}
+
+.refyn-like-feedback-inner::-webkit-scrollbar-thumb:hover {
+  background: rgba(82, 82, 91, 0.8);
 }
 
 .refyn-like-feedback-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .refyn-like-feedback-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #F4F4F5;
-}
-
-.refyn-like-feedback-subtitle {
   font-size: 11px;
-  color: #71717A;
-  margin-bottom: 12px;
+  font-weight: 600;
+  color: #A1A1AA;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .refyn-like-feedback-close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   border: none;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #71717A;
+  border-radius: 4px;
+  background: transparent;
+  color: #52525B;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .refyn-like-feedback-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #F4F4F5;
+  background: rgba(255, 255, 255, 0.05);
+  color: #A1A1AA;
 }
 
 .refyn-like-feedback-options {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 4px;
+  margin-bottom: 8px;
 }
 
 .refyn-like-feedback-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  justify-content: center;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
   background: rgba(26, 26, 30, 0.6);
-  color: #A1A1AA;
-  font-size: 11px;
+  color: #71717A;
+  font-size: 9px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
-  text-align: left;
+  text-align: center;
 }
 
 .refyn-like-feedback-btn:hover {
-  border-color: rgba(34, 197, 94, 0.3);
-  background: rgba(34, 197, 94, 0.1);
-  color: #86EFAC;
+  border-color: rgba(0, 240, 255, 0.3);
+  background: rgba(0, 240, 255, 0.08);
+  color: #00F0FF;
 }
 
 .refyn-like-feedback-btn.active {
   border-color: rgba(0, 240, 255, 0.5);
   background: rgba(0, 240, 255, 0.15);
   color: #00F0FF;
-}
-
-.refyn-like-feedback-icon {
-  font-size: 14px;
-  flex-shrink: 0;
 }
 
 .refyn-like-feedback-label {
@@ -1933,50 +2292,47 @@
 
 .refyn-like-feedback-custom {
   display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-  animation: refyn-fade-in 0.2s ease;
+  gap: 4px;
+  margin-bottom: 6px;
 }
 
 .refyn-like-feedback-input {
   flex: 1;
-  padding: 8px 10px;
-  border: 1px solid rgba(0, 240, 255, 0.3);
-  border-radius: 8px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
   background: rgba(26, 26, 30, 0.8);
   color: #F4F4F5;
-  font-size: 11px;
+  font-size: 9px;
   font-family: inherit;
   outline: none;
   transition: all 0.15s ease;
 }
 
 .refyn-like-feedback-input:focus {
-  border-color: rgba(0, 240, 255, 0.6);
-  box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.15);
+  border-color: rgba(0, 240, 255, 0.4);
 }
 
 .refyn-like-feedback-input::placeholder {
-  color: #52525B;
+  color: #3F3F46;
 }
 
 .refyn-like-feedback-submit {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   border: none;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #00F0FF 0%, #00B8C4 100%);
-  color: #0A0A0C;
+  border-radius: 5px;
+  background: rgba(0, 240, 255, 0.15);
+  color: #00F0FF;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .refyn-like-feedback-submit:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 15px rgba(0, 240, 255, 0.4);
+  background: rgba(0, 240, 255, 0.25);
 }
 
 .refyn-like-feedback-skip {
@@ -1984,17 +2340,1325 @@
 }
 
 .refyn-like-feedback-skip-btn {
-  padding: 6px 12px;
+  padding: 4px 10px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   background: transparent;
-  color: #52525B;
-  font-size: 10px;
+  color: #3F3F46;
+  font-size: 9px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .refyn-like-feedback-skip-btn:hover {
-  color: #A1A1AA;
+  color: #71717A;
+}
+
+/* =====================================================
+   PROMINENT OUTPUT ACTION BUTTONS
+   ===================================================== */
+
+.refyn-output-actions-main {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.refyn-action-btn-secondary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
+  color: #E4E4E7;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-action-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.refyn-action-btn-primary {
+  flex: 1.5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #00F0FF 0%, #00B8C4 100%);
+  color: #0A0A0C;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refyn-action-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 240, 255, 0.35);
+}
+
+.refyn-action-btn-primary:active {
+  transform: translateY(0);
+}
+
+/* =====================================================
+   LIBRARY TAB STYLES
+   ===================================================== */
+
+.refyn-library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.refyn-library-count {
+  font-size: 11px;
+  color: #71717A;
+}
+
+.refyn-refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #71717A;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-refresh-btn:hover {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00F0FF;
+}
+
+.refyn-library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.refyn-library-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 30px 20px;
+  color: #52525B;
+  text-align: center;
+}
+
+.refyn-library-empty svg {
+  opacity: 0.5;
+}
+
+.refyn-library-empty span {
+  font-size: 12px;
+}
+
+.refyn-library-hint {
+  font-size: 10px !important;
+  color: #3F3F46 !important;
+}
+
+.refyn-library-item {
+  padding: 8px;
+  background: rgba(26, 26, 30, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.refyn-library-item:hover {
+  border-color: rgba(0, 240, 255, 0.3);
+  background: rgba(0, 240, 255, 0.05);
+}
+
+.refyn-library-item-content {
+  font-size: 10px;
+  color: #E4E4E7;
+  line-height: 1.3;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+
+.refyn-library-item-rating {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.refyn-star-row {
+  display: flex;
+  gap: 1px;
+}
+
+.refyn-star-btn {
+  background: none;
+  border: none;
+  color: #3F3F46;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.1s ease;
+}
+
+.refyn-star-btn:hover {
+  color: #FBBF24;
+  transform: scale(1.2);
+}
+
+.refyn-star-btn.active {
+  color: #FBBF24;
+}
+
+.refyn-analyze-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 50%;
+  background: rgba(168, 85, 247, 0.1);
+  color: #A855F7;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-analyze-btn:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+.refyn-analyze-btn.has-feedback {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #22C55E;
+}
+
+.refyn-analyze-btn.loading {
+  animation: refyn-pulse 1s ease-in-out infinite;
+}
+
+@keyframes refyn-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Like/Dislike buttons */
+.refyn-library-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.refyn-library-item-header .refyn-library-item-content {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.refyn-like-btns {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.refyn-like-btn,
+.refyn-dislike-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #52525B;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-like-btn:hover {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22C55E;
+}
+
+.refyn-dislike-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+}
+
+.refyn-like-btn.active {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22C55E;
+}
+
+.refyn-dislike-btn.active {
+  background: rgba(239, 68, 68, 0.2);
+  color: #EF4444;
+}
+
+/* Liked/Disliked item states */
+.refyn-library-item.refyn-liked {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.refyn-library-item.refyn-disliked {
+  border-color: rgba(239, 68, 68, 0.3);
+  opacity: 0.7;
+}
+
+/* Preference tags */
+.refyn-pref-tag {
+  font-size: 7px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.refyn-pref-liked {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22C55E;
+}
+
+.refyn-pref-disliked {
+  background: rgba(239, 68, 68, 0.2);
+  color: #EF4444;
+}
+
+.refyn-library-feedback {
+  background: rgba(26, 26, 30, 0.8);
+  border-radius: 4px;
+  padding: 5px 6px;
+  margin-bottom: 6px;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.refyn-feedback-score {
+  color: #FBBF24;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.refyn-feedback-good {
+  color: #22C55E;
+  margin-bottom: 2px;
+}
+
+.refyn-feedback-improve {
+  color: #F97316;
+}
+
+.refyn-library-item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.refyn-library-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 8px;
+  color: #52525B;
+}
+
+.refyn-library-item-platform {
+  padding: 1px 4px;
+  background: rgba(0, 240, 255, 0.1);
+  color: #00F0FF;
+  border-radius: 3px;
+  text-transform: capitalize;
+  font-size: 7px;
+}
+
+.refyn-library-item-actions {
+  display: flex;
+  gap: 3px;
+}
+
+.refyn-lib-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #71717A;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-lib-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #A1A1AA;
+}
+
+.refyn-lib-copy:hover {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: rgba(0, 240, 255, 0.3);
+  color: #00F0FF;
+}
+
+.refyn-lib-use:hover {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #22C55E;
+}
+
+.refyn-lib-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #EF4444;
+}
+
+/* =====================================================
+   COMPACT INPUT SECTION
+   ===================================================== */
+
+.refyn-input-compact {
+  position: relative;
+}
+
+.refyn-textarea-compact {
+  width: 100%;
+  padding: 8px 30px 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(26, 26, 30, 0.6);
+  color: #F4F4F5;
+  font-size: 11px;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: none;
+  transition: all 0.2s ease;
+  min-height: 50px;
+  max-height: 80px;
+}
+
+.refyn-textarea-compact:focus {
+  outline: none;
+  border-color: rgba(0, 240, 255, 0.4);
+}
+
+.refyn-textarea-compact::placeholder {
+  color: #52525B;
+  font-size: 10px;
+}
+
+.refyn-input-actions-mini {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+}
+
+.refyn-input-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #71717A;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-input-action-btn:hover {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00F0FF;
+}
+
+.refyn-input-action-btn.refyn-saved {
+  background: rgba(34, 197, 94, 0.2) !important;
+  color: #22C55E !important;
+}
+
+#refyn-save-input:hover {
+  background: rgba(251, 191, 36, 0.15);
+  color: #FBBF24;
+}
+
+#refyn-save-input.refyn-saved {
+  background: rgba(251, 191, 36, 0.25) !important;
+  color: #FBBF24 !important;
+}
+
+.refyn-grab-btn-mini {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0, 240, 255, 0.1);
+  color: #00F0FF;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-grab-btn-mini:hover {
+  background: rgba(0, 240, 255, 0.2);
+}
+
+/* =====================================================
+   PROFILE TAB STYLES
+   ===================================================== */
+
+.refyn-profile-section {
+  padding: 8px;
+  background: rgba(26, 26, 30, 0.6);
+  border-radius: 8px;
+}
+
+.refyn-profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #A1A1AA;
+}
+
+.refyn-profile-content {
+  min-height: 60px;
+}
+
+.refyn-profile-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 15px 10px;
+  color: #52525B;
+  text-align: center;
+  font-size: 11px;
+}
+
+.refyn-profile-hint {
+  font-size: 9px !important;
+  color: #3F3F46 !important;
+}
+
+.refyn-profile-group {
+  margin-bottom: 8px;
+}
+
+.refyn-profile-label {
+  display: block;
+  font-size: 9px;
+  color: #71717A;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.refyn-profile-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.refyn-profile-tag {
+  padding: 2px 6px;
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 4px;
+  color: #00F0FF;
+  font-size: 9px;
+}
+
+.refyn-profile-stats {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.refyn-stat-item {
+  flex: 1;
+  padding: 10px;
+  background: rgba(26, 26, 30, 0.6);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.refyn-stat-label {
+  display: block;
+  font-size: 9px;
+  color: #71717A;
+  margin-bottom: 4px;
+}
+
+.refyn-stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #00F0FF;
+}
+
+/* =====================================================
+   ACCOUNT / AUTH SECTION STYLES
+   ===================================================== */
+
+.refyn-account-section {
+  margin-bottom: 10px;
+}
+
+.refyn-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.refyn-auth-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: rgba(39, 39, 42, 0.8);
+  border: 1px solid rgba(63, 63, 70, 0.5);
+  border-radius: 6px;
+  color: #FAFAFA;
+  font-size: 11px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+  box-sizing: border-box;
+}
+
+.refyn-auth-input::placeholder {
+  color: #71717A;
+}
+
+.refyn-auth-input:focus {
+  border-color: rgba(0, 240, 255, 0.5);
+  background: rgba(39, 39, 42, 1);
+}
+
+.refyn-auth-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.refyn-auth-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refyn-auth-login {
+  background: linear-gradient(135deg, #00F0FF 0%, #00C4CC 100%);
+  color: #0A0A0C;
+}
+
+.refyn-auth-login:hover {
+  background: linear-gradient(135deg, #00C4CC 0%, #00A0A8 100%);
+}
+
+.refyn-auth-signup {
+  background: rgba(63, 63, 70, 0.6);
+  color: #A1A1AA;
+  border: 1px solid rgba(63, 63, 70, 0.8);
+}
+
+.refyn-auth-signup:hover {
+  background: rgba(63, 63, 70, 0.8);
+  color: #FAFAFA;
+}
+
+.refyn-auth-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refyn-auth-error {
+  color: #F87171;
+  font-size: 10px;
+  min-height: 14px;
+}
+
+.refyn-auth-hint {
+  font-size: 9px;
+  color: #52525B;
+  text-align: center;
+}
+
+.refyn-auth-logged-in {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.refyn-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refyn-user-avatar {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #00F0FF 0%, #A855F7 100%);
+  border-radius: 50%;
+  color: #0A0A0C;
+}
+
+.refyn-user-email {
+  font-size: 11px;
+  color: #FAFAFA;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.refyn-account-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.refyn-sync-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 6px;
+  color: #00F0FF;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refyn-sync-btn:hover {
+  background: rgba(0, 240, 255, 0.2);
+}
+
+.refyn-sync-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refyn-logout-btn {
+  padding: 6px 10px;
+  background: rgba(63, 63, 70, 0.4);
+  border: 1px solid rgba(63, 63, 70, 0.6);
+  border-radius: 6px;
+  color: #A1A1AA;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refyn-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #F87171;
+}
+
+.refyn-sync-indicator {
+  font-size: 9px;
+  color: #52525B;
+}
+
+.refyn-sync-indicator.syncing {
+  color: #00F0FF;
+}
+
+.refyn-sync-indicator.synced {
+  color: #4ADE80;
+}
+
+/* Make tabs more compact */
+.refyn-tab {
+  padding: 6px 8px;
+  font-size: 10px;
+}
+
+/* Smaller header */
+.refyn-panel-header {
+  padding: 8px 10px;
+}
+
+.refyn-panel-logo .refyn-logo-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+}
+
+.refyn-logo-text {
+  font-size: 11px;
+}
+
+.refyn-platform-name {
+  font-size: 9px;
+}
+
+/* Compact body */
+.refyn-panel-body {
+  padding: 8px;
+  gap: 8px;
+}
+
+/* Smaller action button */
+.refyn-action-btn {
+  padding: 8px 12px;
+  font-size: 11px;
+}
+
+/* Smaller output text */
+.refyn-output-text {
+  font-size: 11px;
+  padding: 10px;
+  max-height: 200px;
+}
+
+.refyn-expanded .refyn-output-text {
+  max-height: 350px;
+}
+
+/* Compact mode buttons */
+.refyn-mode-btn {
+  padding: 4px 2px;
+  font-size: 8px;
+  gap: 2px;
+}
+
+.refyn-mode-btn svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* =====================================================
+   THEME REMIX SECTION
+   ===================================================== */
+
+.refyn-theme-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 8px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.05) 0%, rgba(0, 240, 255, 0.05) 100%);
+  border: 1px solid rgba(168, 85, 247, 0.15);
+  border-radius: 8px;
+  margin-top: 2px;
+}
+
+.refyn-theme-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.refyn-theme-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #A855F7;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.refyn-theme-label svg {
+  opacity: 0.8;
+  width: 10px;
+  height: 10px;
+}
+
+.refyn-theme-shuffle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 5px;
+  background: rgba(168, 85, 247, 0.1);
+  color: #A855F7;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refyn-theme-shuffle:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.5);
+  transform: rotate(15deg);
+}
+
+.refyn-theme-shuffle.refyn-shuffling {
+  animation: refyn-shuffle-spin 0.5s ease-out;
+}
+
+@keyframes refyn-shuffle-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.refyn-theme-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.refyn-theme-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(26, 26, 30, 0.8);
+  color: #71717A;
+  font-size: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.refyn-theme-chip:hover {
+  border-color: rgba(168, 85, 247, 0.5);
+  background: rgba(168, 85, 247, 0.2);
+  color: #E9D5FF;
+}
+
+.refyn-theme-chip.active {
+  border-color: rgba(168, 85, 247, 0.8);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.35) 0%, rgba(0, 240, 255, 0.25) 100%);
+  color: #FFFFFF;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+}
+
+.refyn-theme-name {
+  font-size: 8px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* =====================================================
+   HOVER-TO-SAVE BUTTON
+   ===================================================== */
+
+.refyn-hover-save {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: all 0.15s ease;
+  pointer-events: none;
+}
+
+.refyn-hover-save-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.refyn-hover-save-fade {
+  opacity: 0;
+  transform: translateY(-5px);
+}
+
+.refyn-hover-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(10, 10, 12, 0.95) 0%, rgba(26, 26, 30, 0.95) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #FBBF24;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(251, 191, 36, 0.2);
+}
+
+.refyn-hover-save-btn:hover {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(251, 191, 36, 0.1) 100%);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(251, 191, 36, 0.4),
+    0 0 15px rgba(251, 191, 36, 0.15);
+  transform: translateY(-1px);
+}
+
+.refyn-hover-save-btn svg {
+  color: #FBBF24;
+}
+
+.refyn-hover-saved {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.15) 100%) !important;
+  color: #22C55E !important;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(34, 197, 94, 0.4) !important;
+}
+
+.refyn-hover-saved svg {
+  color: #22C55E !important;
+}
+
+/* =====================================================
+   ACCOUNT & AUTH SECTION
+   ===================================================== */
+
+.refyn-account-section {
+  margin-bottom: 8px;
+}
+
+.refyn-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.refyn-auth-input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(26, 26, 30, 0.8);
+  color: #F4F4F5;
+  font-size: 10px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.refyn-auth-input:focus {
+  border-color: rgba(0, 240, 255, 0.4);
+}
+
+.refyn-auth-input::placeholder {
+  color: #52525B;
+}
+
+.refyn-auth-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.refyn-auth-btn {
+  flex: 1;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 5px;
+  font-size: 9px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-auth-login {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00F0FF;
+}
+
+.refyn-auth-login:hover {
+  background: rgba(0, 240, 255, 0.25);
+}
+
+.refyn-auth-signup {
+  background: rgba(255, 255, 255, 0.05);
+  color: #71717A;
+}
+
+.refyn-auth-signup:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #A1A1AA;
+}
+
+.refyn-auth-error {
+  font-size: 9px;
+  color: #EF4444;
+  min-height: 14px;
+}
+
+.refyn-auth-hint {
+  font-size: 8px;
+  color: #3F3F46;
+  text-align: center;
+}
+
+.refyn-auth-logged-in {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.refyn-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refyn-user-avatar {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 240, 255, 0.15);
+  border-radius: 50%;
+  color: #00F0FF;
+}
+
+.refyn-user-email {
+  font-size: 10px;
+  color: #A1A1AA;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.refyn-account-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.refyn-sync-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 5px;
+  background: rgba(0, 240, 255, 0.1);
+  color: #00F0FF;
+  font-size: 9px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-sync-btn:hover {
+  background: rgba(0, 240, 255, 0.2);
+}
+
+.refyn-sync-btn.syncing svg {
+  animation: refyn-spin 1s linear infinite;
+}
+
+.refyn-logout-btn {
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #52525B;
+  font-size: 9px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #EF4444;
+}
+
+.refyn-sync-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3F3F46;
+  transition: all 0.2s ease;
+}
+
+.refyn-sync-indicator.synced {
+  background: #22C55E;
+}
+
+.refyn-sync-indicator.syncing {
+  background: #FBBF24;
+  animation: refyn-pulse 1s ease-in-out infinite;
+}
+
+.refyn-sync-indicator.offline {
+  background: #71717A;
+}
+
+/* =====================================================
+   LIBRARY IMAGE THUMBNAILS
+   ===================================================== */
+
+.refyn-library-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.refyn-lib-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-lib-thumb:hover {
+  transform: scale(1.1);
+  border-color: rgba(0, 240, 255, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.refyn-lib-output {
+  border-color: rgba(0, 240, 255, 0.3);
+}
+
+.refyn-lib-output:hover {
+  border-color: rgba(0, 240, 255, 0.6);
+}
+
+.refyn-lib-ref {
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.refyn-lib-ref:hover {
+  border-color: rgba(168, 85, 247, 0.6);
+}
+
+.refyn-lib-imgprompt {
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.refyn-lib-imgprompt:hover {
+  border-color: rgba(251, 191, 36, 0.6);
+}
+
+/* Extracted Parameters Tags */
+.refyn-lib-params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 6px;
+}
+
+.refyn-param-tag {
+  padding: 2px 5px;
+  background: rgba(113, 113, 122, 0.15);
+  border: 1px solid rgba(113, 113, 122, 0.2);
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 500;
+  color: #A1A1AA;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+
+.refyn-param-tag strong {
+  color: #00F0FF;
+  font-weight: 600;
+}
+
+/* Image modal for viewing larger */
+.refyn-image-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2147483647;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+}
+
+.refyn-image-modal.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.refyn-image-modal img {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.refyn-image-modal-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-image-modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
 }

@@ -7,6 +7,7 @@ import type {
   OptimizeResponse,
   TasteProfile,
   GenomeTag,
+  ThemeRemixId,
 } from '@/shared/types';
 
 interface ClaudeMessage {
@@ -47,9 +48,13 @@ export async function optimizePrompt(
   mode: OptimizationMode,
   tasteProfile?: TasteProfile,
   presetId?: string | null,
-  preferenceContext?: string
+  preferenceContext?: string,
+  chaosIntensity?: number,
+  themeId?: ThemeRemixId,
+  variationIntensity?: number,
+  previousRefinedPrompt?: string | null
 ): Promise<OptimizeResponse> {
-  console.log('[Refyn API] Starting optimization:', { platform, mode, presetId, promptLength: prompt.length });
+  console.log('[Refyn API] Starting optimization:', { platform, mode, presetId, themeId, variationIntensity, promptLength: prompt.length });
 
   const apiKey = await getApiKey();
   console.log('[Refyn API] API key retrieved:', apiKey ? `${apiKey.substring(0, 15)}...` : 'NOT FOUND');
@@ -63,7 +68,7 @@ export async function optimizePrompt(
   }
 
   try {
-    const { system, user } = buildOptimizationPrompt(prompt, platform, mode, tasteProfile, presetId, preferenceContext);
+    const { system, user } = buildOptimizationPrompt(prompt, platform, mode, tasteProfile, presetId, preferenceContext, chaosIntensity, themeId, variationIntensity, previousRefinedPrompt);
     console.log('[Refyn API] Built prompt, making API call...');
 
     const messages: ClaudeMessage[] = [

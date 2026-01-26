@@ -1,5 +1,5 @@
 import { detectPlatform, findPromptInputs, getInputText, setInputText } from './platformDetector';
-import { createFloatingPanel, showFloatingPanel, toggleFloatingPanel, forceShowFloatingPanel, initTrashObserver } from './FloatingPanel';
+import { createFloatingPanel, showFloatingPanel, toggleFloatingPanel, forceShowFloatingPanel, initTrashObserver, initHoverToSave } from './FloatingPanel';
 import { initOutputObserver } from './OutputObserver';
 import type { Platform, OptimizationMode } from '@/shared/types';
 
@@ -47,6 +47,11 @@ function init() {
     setTimeout(() => {
       initTrashObserver();
     }, 2000);
+
+    // Initialize hover-to-save for prompts on the page
+    setTimeout(() => {
+      initHoverToSave();
+    }, 1000);
 
     // Start CTAD capture session for this platform
     setTimeout(() => {

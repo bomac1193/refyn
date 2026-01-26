@@ -6,7 +6,7 @@
 import type { Platform } from '@/shared/types';
 import { detectPlatform } from './platformDetector';
 import { recordOutputFeedback, linkPromptToOutput } from '@/lib/deepLearning';
-import { flashLearningIndicator, showQuickRatePopup } from './FloatingPanel';
+import { flashLearningIndicator } from './FloatingPanel';
 
 interface OutputElement {
   element: HTMLElement;
@@ -173,17 +173,13 @@ function trackOutput(element: HTMLElement): void {
     linkPromptToOutput(prompt, outputId, currentPlatform);
   }
 
-  // Add rating overlay
+  // Add rating overlay (users can rate from there instead of popup spam)
   if (ratingOverlaysEnabled) {
     addRatingOverlay(element, outputId);
   }
 
-  // Show quick-rate popup for new outputs (with slight delay to not spam)
-  if (prompt) {
-    setTimeout(() => {
-      showQuickRatePopup(outputId, prompt);
-    }, 500);
-  }
+  // NOTE: Removed automatic quick-rate popup - it was too intrusive
+  // Users can rate outputs via the overlay that appears on hover
 
   console.log('[Refyn Observer] Tracking new output:', outputId, prompt ? '(has prompt)' : '(no prompt)');
 }
@@ -684,13 +680,12 @@ export function getObserverStats(): { tracked: number; rated: number } {
 // =====================================================
 
 const LIKE_FEEDBACK_PRESETS = [
-  { id: 'great-style', label: 'Love the style', icon: '🎨' },
-  { id: 'perfect-colors', label: 'Perfect colors', icon: '🌈' },
-  { id: 'good-composition', label: 'Great composition', icon: '📐' },
-  { id: 'matches-vision', label: 'Matches my vision', icon: '✨' },
-  { id: 'unique-creative', label: 'Unique & creative', icon: '💡' },
-  { id: 'high-quality', label: 'High quality', icon: '⭐' },
-  { id: 'other', label: 'Tell me more...', icon: '💭' },
+  { id: 'great-style', label: 'Great style' },
+  { id: 'perfect-colors', label: 'Perfect colors' },
+  { id: 'good-composition', label: 'Strong composition' },
+  { id: 'matches-vision', label: 'Matches vision' },
+  { id: 'unique-creative', label: 'Unique' },
+  { id: 'high-quality', label: 'High quality' },
 ];
 
 let likeFeedbackElement: HTMLElement | null = null;
@@ -708,34 +703,31 @@ function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: str
   likeFeedbackElement.innerHTML = `
     <div class="refyn-like-feedback-inner">
       <div class="refyn-like-feedback-header">
-        <span class="refyn-like-feedback-title">What made this great?</span>
+        <span class="refyn-like-feedback-title">What worked?</span>
         <button class="refyn-like-feedback-close" data-action="close">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
       </div>
-      <div class="refyn-like-feedback-subtitle">Help Refyn learn your taste</div>
       <div class="refyn-like-feedback-options">
         ${LIKE_FEEDBACK_PRESETS.map(preset => `
           <button class="refyn-like-feedback-btn" data-reason="${preset.id}">
-            <span class="refyn-like-feedback-icon">${preset.icon}</span>
             <span class="refyn-like-feedback-label">${preset.label}</span>
           </button>
         `).join('')}
       </div>
-      <div class="refyn-like-feedback-custom" id="refyn-like-custom" style="display: none;">
-        <input type="text" class="refyn-like-feedback-input" placeholder="What specifically did you like?" maxlength="150">
+      <div class="refyn-like-feedback-custom" id="refyn-like-custom">
+        <input type="text" class="refyn-like-feedback-input" placeholder="Other reason..." maxlength="100">
         <button class="refyn-like-feedback-submit" data-action="submit-custom">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
         </button>
       </div>
       <div class="refyn-like-feedback-skip">
-        <button class="refyn-like-feedback-skip-btn" data-action="skip">Skip for now</button>
+        <button class="refyn-like-feedback-skip-btn" data-action="skip">Skip</button>
       </div>
     </div>
   `;
@@ -760,19 +752,7 @@ function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: str
       e.preventDefault();
       e.stopPropagation();
       const reason = (btn as HTMLElement).dataset.reason;
-
-      if (reason === 'other') {
-        // Show custom input
-        const customSection = likeFeedbackElement?.querySelector('#refyn-like-custom') as HTMLElement;
-        if (customSection) {
-          customSection.style.display = 'flex';
-          const input = customSection.querySelector('input');
-          input?.focus();
-        }
-        btn.classList.add('active');
-      } else {
-        submitLikeFeedback(reason || 'unknown');
-      }
+      submitLikeFeedback(reason || 'unknown');
     });
   });
 
@@ -783,22 +763,26 @@ function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: str
 
   // Skip button
   likeFeedbackElement.querySelector('[data-action="skip"]')?.addEventListener('click', () => {
-    flashLearningIndicator('Preference saved!');
-    showLearningToast('Got it! Learning from your like...');
+    flashLearningIndicator('Preference saved');
+    showLearningToast('Learning from your like...');
     hideLikeFeedbackPopup();
   });
 
   // Custom submit
   likeFeedbackElement.querySelector('[data-action="submit-custom"]')?.addEventListener('click', () => {
     const input = likeFeedbackElement?.querySelector('.refyn-like-feedback-input') as HTMLInputElement;
-    submitLikeFeedback('custom', input?.value || '');
+    if (input?.value?.trim()) {
+      submitLikeFeedback('custom', input.value.trim());
+    }
   });
 
   // Enter key on custom input
   likeFeedbackElement.querySelector('.refyn-like-feedback-input')?.addEventListener('keydown', (e) => {
     if ((e as KeyboardEvent).key === 'Enter') {
       const input = e.target as HTMLInputElement;
-      submitLikeFeedback('custom', input.value || '');
+      if (input.value?.trim()) {
+        submitLikeFeedback('custom', input.value.trim());
+      }
     }
   });
 
@@ -809,12 +793,12 @@ function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: str
     likeFeedbackElement?.classList.add('refyn-like-feedback-visible');
   });
 
-  // Auto-dismiss after 12 seconds
+  // Auto-dismiss after 10 seconds
   likeFeedbackTimeout = setTimeout(() => {
-    flashLearningIndicator('Preference saved!');
+    flashLearningIndicator('Preference saved');
     showLearningToast('Learning from your like...');
     hideLikeFeedbackPopup();
-  }, 12000);
+  }, 10000);
 }
 
 /**

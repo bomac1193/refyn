@@ -27,6 +27,29 @@ export interface PlatformInfo {
 // Optimization Types
 export type OptimizationMode = 'enhance' | 'expand' | 'style' | 'params' | 'crazy';
 
+// Theme Remix Types - transforms aesthetic while keeping subject
+export type ThemeRemixId =
+  | 'freaq'      // Experimental, glitchy, rule-breaking
+  | 'egun'       // Dark, ancestral, spiritual, shadows
+  | 'alien'      // Sci-fi, otherworldly, biomechanical
+  | 'bk2dvd'     // Cinematic, film aesthetic, widescreen
+  | 'wahala'     // Chaotic, meme, ironic, African internet energy
+  | 'minimal'    // Clean, simple, negative space
+  | 'surreal'    // Dreamlike, impossible, Dali-esque
+  | 'y2k'        // Early 2000s, chrome, cyber
+  | 'vaporwave'  // Aesthetic, nostalgic, neon pink/blue
+  | 'brutalist'  // Raw, concrete, stark, industrial
+  | null;        // No theme selected
+
+export interface ThemeRemix {
+  id: ThemeRemixId;
+  name: string;
+  emoji: string;
+  description: string;
+  keywords: string[];
+  styleGuide: string; // Instructions for AI on how to apply this theme
+}
+
 // Style Presets
 export interface StylePreset {
   id: string;
@@ -63,6 +86,7 @@ export interface OptimizeRequest {
   prompt: string;
   platform: Platform;
   mode: OptimizationMode;
+  chaosIntensity?: number; // 0-100
   tasteProfile?: TasteProfile;
 }
 
@@ -113,9 +137,31 @@ export interface PromptRecord {
   content: string;
   platform: Platform;
   createdAt: Date;
-  rating?: number;
+  rating?: number; // 1-5 star rating
+  liked?: boolean; // true = liked style, false = disliked style, undefined = neutral
   tags: string[];
   metadata?: Record<string, unknown>;
+  // Image references (for Midjourney etc.)
+  outputImageUrl?: string; // The generated image URL
+  referenceImages?: string[]; // --sref, --cref URLs
+  imagePrompts?: string[]; // Image-to-image input URLs
+  extractedParams?: { // Parsed parameters
+    ar?: string; // aspect ratio
+    v?: string; // version
+    seed?: string;
+    stylize?: string;
+    chaos?: string;
+    weird?: string;
+    style?: string;
+    [key: string]: string | undefined;
+  };
+  // AI feedback on prompt quality
+  aiFeedback?: {
+    score: number; // 1-5
+    strengths: string[];
+    improvements: string[];
+    analyzedAt: string;
+  };
 }
 
 export interface PromptNode {

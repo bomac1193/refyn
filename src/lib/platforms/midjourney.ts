@@ -141,7 +141,8 @@ export const ASPECT_RATIOS = [
  * Midjourney versions
  */
 export const MJ_VERSIONS = [
-  { label: 'V6.1 (Latest)', value: '6.1' },
+  { label: 'V7 (Latest)', value: '7' },
+  { label: 'V6.1', value: '6.1' },
   { label: 'V6', value: '6' },
   { label: 'V5.2', value: '5.2' },
   { label: 'V5.1', value: '5.1' },
@@ -166,7 +167,7 @@ export function suggestParams(prompt: string): MidjourneyParams {
   const params: MidjourneyParams = {};
 
   // Suggest version
-  params.version = '6.1';
+  params.version = '7';
 
   // Suggest aspect ratio based on content
   if (lower.includes('landscape') || lower.includes('panorama') || lower.includes('wide')) {

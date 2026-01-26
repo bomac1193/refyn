@@ -14,7 +14,26 @@ import {
   removeSavedPrompt,
   addLineageNode,
   getLineage,
+  updatePromptRating,
+  updatePromptFeedback,
+  updatePromptLiked,
 } from '@/lib/storage';
+import { CLAUDE_API_ENDPOINT, CLAUDE_MODEL } from '@/shared/constants';
+import {
+  saveSupabaseConfig,
+  isSupabaseConfigured,
+} from '@/lib/supabase/config';
+import {
+  signIn,
+  signUp,
+  signOut,
+  getAuthState,
+} from '@/lib/supabase/auth';
+import {
+  syncToCloud,
+  syncFromCloud,
+  getSyncStatus,
+} from '@/lib/supabase/sync';
 import {
   startCaptureSession,
   logPromptVersion,
@@ -30,6 +49,7 @@ import {
   getCurrentVersionId,
 } from '@/lib/processCapture';
 import type { Platform, OptimizationMode, TasteProfile } from '@/shared/types';
+import { getDeepPreferences } from '@/lib/deepLearning';
 
 // Message types
 interface OptimizeMessage {
@@ -38,9 +58,13 @@ interface OptimizeMessage {
     prompt: string;
     platform: Platform;
     mode: OptimizationMode;
+    chaosIntensity?: number;
+    variationIntensity?: number;
+    previousRefinedPrompt?: string | null;
     tasteProfile?: TasteProfile;
     presetId?: string | null;
     preferenceContext?: string;
+    themeId?: string | null;
   };
 }
 
@@ -59,11 +83,15 @@ interface SavePromptMessage {
     content: string;
     platform: Platform;
     tags?: string[];
+    outputImageUrl?: string;
+    referenceImages?: string[];
+    imagePrompts?: string[];
+    extractedParams?: Record<string, string | undefined>;
   };
 }
 
 interface GetDataMessage {
-  type: 'GET_HISTORY' | 'GET_SAVED' | 'GET_SETTINGS' | 'GET_TASTE_PROFILE';
+  type: 'GET_HISTORY' | 'GET_SAVED' | 'GET_SETTINGS' | 'GET_TASTE_PROFILE' | 'GET_DEEP_PREFERENCES';
 }
 
 interface UpdateSettingsMessage {
@@ -79,6 +107,31 @@ interface UpdateTasteProfileMessage {
 interface DeletePromptMessage {
   type: 'DELETE_SAVED_PROMPT';
   payload: string;
+}
+
+interface RatePromptMessage {
+  type: 'RATE_PROMPT';
+  payload: {
+    promptId: string;
+    rating: number; // 1-5
+  };
+}
+
+interface SetPromptLikedMessage {
+  type: 'SET_PROMPT_LIKED';
+  payload: {
+    promptId: string;
+    liked: boolean | undefined; // true = liked, false = disliked, undefined = neutral
+  };
+}
+
+interface AnalyzePromptMessage {
+  type: 'ANALYZE_PROMPT';
+  payload: {
+    promptId: string;
+    content: string;
+    platform: Platform;
+  };
 }
 
 interface LineageMessage {
@@ -140,6 +193,34 @@ interface GetContributorDataMessage {
   type: 'GET_CONTRIBUTOR_STATS' | 'GET_CONTRIBUTOR_ID' | 'GET_ACTIVE_SESSION' | 'GET_CURRENT_VERSION_ID';
 }
 
+// Auth Messages
+interface AuthSignInMessage {
+  type: 'AUTH_SIGN_IN';
+  payload: { email: string; password: string };
+}
+
+interface AuthSignUpMessage {
+  type: 'AUTH_SIGN_UP';
+  payload: { email: string; password: string };
+}
+
+interface AuthSignOutMessage {
+  type: 'AUTH_SIGN_OUT';
+}
+
+interface AuthGetStateMessage {
+  type: 'AUTH_GET_STATE';
+}
+
+interface AuthConfigureMessage {
+  type: 'AUTH_CONFIGURE';
+  payload: { url: string; anonKey: string };
+}
+
+interface SyncMessage {
+  type: 'SYNC_TO_CLOUD' | 'SYNC_FROM_CLOUD' | 'GET_SYNC_STATUS';
+}
+
 type Message =
   | OptimizeMessage
   | ApiKeyMessage
@@ -149,6 +230,9 @@ type Message =
   | UpdateSettingsMessage
   | UpdateTasteProfileMessage
   | DeletePromptMessage
+  | RatePromptMessage
+  | SetPromptLikedMessage
+  | AnalyzePromptMessage
   | LineageMessage
   | StartCaptureMessage
   | LogPromptVersionMessage
@@ -156,7 +240,13 @@ type Message =
   | LogSelectionMessage
   | EndCaptureMessage
   | ContributionConsentMessage
-  | GetContributorDataMessage;
+  | GetContributorDataMessage
+  | AuthSignInMessage
+  | AuthSignUpMessage
+  | AuthSignOutMessage
+  | AuthGetStateMessage
+  | AuthConfigureMessage
+  | SyncMessage;
 
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener(
@@ -181,15 +271,28 @@ async function handleMessage(message: Message): Promise<unknown> {
   switch (message.type) {
     // Prompt optimization
     case 'OPTIMIZE_PROMPT': {
-      const { prompt, platform, mode, tasteProfile, presetId, preferenceContext } = message.payload;
-      const result = await optimizePrompt(prompt, platform, mode, tasteProfile, presetId, preferenceContext);
+      const { prompt, platform, mode, chaosIntensity, variationIntensity, previousRefinedPrompt, tasteProfile, presetId, preferenceContext, themeId } = message.payload;
+      console.log('[Refyn Background] Optimizing prompt for platform:', platform, 'mode:', mode, 'variation:', variationIntensity);
+      const result = await optimizePrompt(prompt, platform, mode, tasteProfile, presetId, preferenceContext, chaosIntensity, themeId as any, variationIntensity, previousRefinedPrompt);
 
       if (result.success && result.optimizedPrompt) {
         // Add to history
-        await addToHistory(result.optimizedPrompt, platform);
+        console.log('[Refyn Background] Adding to history...');
+        try {
+          await addToHistory(result.optimizedPrompt, platform);
+          console.log('[Refyn Background] Added to history successfully');
+        } catch (e) {
+          console.error('[Refyn Background] Failed to add to history:', e);
+        }
 
         // Add to lineage tree
-        await addLineageNode(result.optimizedPrompt, platform, undefined, mode);
+        try {
+          await addLineageNode(result.optimizedPrompt, platform, undefined, mode);
+        } catch (e) {
+          console.error('[Refyn Background] Failed to add lineage:', e);
+        }
+      } else {
+        console.log('[Refyn Background] Optimization failed:', result.error);
       }
 
       return {
@@ -225,8 +328,13 @@ async function handleMessage(message: Message): Promise<unknown> {
 
     // Prompt saving
     case 'SAVE_PROMPT': {
-      const { content, platform, tags } = message.payload;
-      const saved = await savePrompt(content, platform, tags || []);
+      const { content, platform, tags, outputImageUrl, referenceImages, imagePrompts, extractedParams } = message.payload;
+      const saved = await savePrompt(content, platform, tags || [], {
+        outputImageUrl,
+        referenceImages,
+        imagePrompts,
+        extractedParams,
+      });
       return { success: true, data: saved };
     }
 
@@ -235,14 +343,40 @@ async function handleMessage(message: Message): Promise<unknown> {
       return { success: true };
     }
 
+    // Rate a saved prompt (1-5 stars)
+    case 'RATE_PROMPT': {
+      const { promptId, rating } = message.payload;
+      await updatePromptRating(promptId, rating);
+      return { success: true };
+    }
+
+    // Set prompt liked/disliked status
+    case 'SET_PROMPT_LIKED': {
+      const { promptId, liked } = message.payload;
+      await updatePromptLiked(promptId, liked);
+      return { success: true };
+    }
+
+    // Analyze a prompt and get AI feedback
+    case 'ANALYZE_PROMPT': {
+      const { promptId, content, platform } = message.payload;
+      const feedback = await analyzePromptQuality(content, platform);
+      if (feedback) {
+        await updatePromptFeedback(promptId, feedback);
+      }
+      return { success: true, data: feedback };
+    }
+
     // Data retrieval
     case 'GET_HISTORY': {
       const history = await getPromptHistory();
+      console.log('[Refyn Background] GET_HISTORY returning', history.length, 'items');
       return { success: true, data: history };
     }
 
     case 'GET_SAVED': {
       const saved = await getSavedPrompts();
+      console.log('[Refyn Background] GET_SAVED returning', saved.length, 'items');
       return { success: true, data: saved };
     }
 
@@ -260,6 +394,12 @@ async function handleMessage(message: Message): Promise<unknown> {
     case 'GET_TASTE_PROFILE': {
       const profile = await getTasteProfile();
       return { success: true, data: profile };
+    }
+
+    // Deep preferences
+    case 'GET_DEEP_PREFERENCES': {
+      const deepPrefs = await getDeepPreferences();
+      return { success: true, data: deepPrefs };
     }
 
     case 'UPDATE_TASTE_PROFILE': {
@@ -359,6 +499,66 @@ async function handleMessage(message: Message): Promise<unknown> {
       return { success: true, data: versionId };
     }
 
+    // ========================================
+    // Authentication & Cloud Sync
+    // ========================================
+
+    case 'AUTH_CONFIGURE': {
+      const { url, anonKey } = message.payload;
+      await saveSupabaseConfig({ url, anonKey });
+      return { success: true };
+    }
+
+    case 'AUTH_SIGN_IN': {
+      const { email, password } = message.payload;
+      const signInResult = await signIn(email, password);
+      if (signInResult.success) {
+        // Auto-sync after login
+        syncFromCloud().catch(console.error);
+      }
+      return signInResult;
+    }
+
+    case 'AUTH_SIGN_UP': {
+      const signUpPayload = message.payload;
+      const signUpResult = await signUp(signUpPayload.email, signUpPayload.password);
+      return signUpResult;
+    }
+
+    case 'AUTH_SIGN_OUT': {
+      // Sync before logging out
+      await syncToCloud().catch(console.error);
+      const signOutResult = await signOut();
+      return signOutResult;
+    }
+
+    case 'AUTH_GET_STATE': {
+      const authState = await getAuthState();
+      const configured = await isSupabaseConfigured();
+      return {
+        success: true,
+        data: {
+          ...authState,
+          isConfigured: configured,
+        },
+      };
+    }
+
+    case 'SYNC_TO_CLOUD': {
+      const toCloudResult = await syncToCloud();
+      return toCloudResult;
+    }
+
+    case 'SYNC_FROM_CLOUD': {
+      const fromCloudResult = await syncFromCloud();
+      return fromCloudResult;
+    }
+
+    case 'GET_SYNC_STATUS': {
+      const syncStatus = await getSyncStatus();
+      return { success: true, data: syncStatus };
+    }
+
     default:
       return { success: false, error: 'Unknown message type' };
   }
@@ -438,6 +638,62 @@ async function initializeProcessCapture() {
     console.log('[Refyn] Process capture initialized');
   } catch (error) {
     console.error('[Refyn] Failed to initialize process capture:', error);
+  }
+}
+
+// Analyze prompt quality using Claude API
+async function analyzePromptQuality(
+  content: string,
+  platform: Platform
+): Promise<{ score: number; strengths: string[]; improvements: string[]; analyzedAt: string } | null> {
+  const apiKey = await getApiKey();
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch(CLAUDE_API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 300,
+        system: `You are an expert prompt analyst for AI image/music/video generation. Analyze prompts and provide actionable feedback. Be concise but specific. Platform: ${platform}`,
+        messages: [{
+          role: 'user',
+          content: `Analyze this prompt and respond in EXACTLY this JSON format (no markdown, no code blocks):
+{"score":X,"strengths":["strength1","strength2"],"improvements":["improvement1","improvement2"]}
+
+Score 1-5 (5=excellent). Max 2-3 items per array. Keep each item under 10 words.
+
+Prompt to analyze:
+${content}`
+        }],
+      }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text?.trim();
+
+    if (!text) return null;
+
+    // Parse JSON response
+    const parsed = JSON.parse(text);
+
+    return {
+      score: Math.max(1, Math.min(5, parsed.score || 3)),
+      strengths: (parsed.strengths || []).slice(0, 3),
+      improvements: (parsed.improvements || []).slice(0, 3),
+      analyzedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('[Refyn] Failed to analyze prompt:', error);
+    return null;
   }
 }
 

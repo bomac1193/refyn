@@ -11,6 +11,7 @@
   ],
   "host_permissions": [
     "https://www.midjourney.com/*",
+    "https://midjourney.com/*",
     "https://discord.com/*",
     "https://suno.com/*",
     "https://www.suno.ai/*",

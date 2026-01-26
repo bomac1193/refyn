@@ -85,21 +85,52 @@ export function detectPlatform(): Platform {
  * Detect if Discord is being used for Midjourney
  */
 function detectDiscordChannel(): Platform {
-  // Check for Midjourney server indicators
-  const serverName = document.querySelector('[class*="guildName"]')?.textContent?.toLowerCase();
-  const channelName = document.querySelector('[class*="channelName"]')?.textContent?.toLowerCase();
+  // Check for Midjourney server indicators with multiple selectors
+  const serverNameSelectors = [
+    '[class*="guildName"]',
+    '[class*="headerName"]',
+    '[data-list-item-id*="guildsnav"]',
+    '[aria-label*="server"]',
+  ];
 
-  if (serverName?.includes('midjourney') || channelName?.includes('midjourney')) {
+  const channelNameSelectors = [
+    '[class*="channelName"]',
+    '[class*="title-"]',
+    '[aria-label*="channel"]',
+  ];
+
+  // Check server name
+  for (const selector of serverNameSelectors) {
+    const el = document.querySelector(selector);
+    if (el?.textContent?.toLowerCase().includes('midjourney')) {
+      return 'midjourney';
+    }
+  }
+
+  // Check channel name
+  for (const selector of channelNameSelectors) {
+    const el = document.querySelector(selector);
+    if (el?.textContent?.toLowerCase().includes('midjourney')) {
+      return 'midjourney';
+    }
+  }
+
+  // Check for Midjourney bot presence in page content
+  const pageContent = document.body.innerText.toLowerCase();
+  if (pageContent.includes('midjourney bot') || pageContent.includes('/imagine')) {
     return 'midjourney';
   }
 
-  // Check for Midjourney bot presence
-  const hasmidjourneyBot = document.body.innerHTML.includes('Midjourney Bot');
-  if (hasmidjourneyBot) {
+  // Check URL for midjourney channel indicators
+  const url = window.location.href.toLowerCase();
+  if (url.includes('midjourney') || url.includes('936929561302675456')) {
+    // 936929561302675456 is Midjourney's official server ID
     return 'midjourney';
   }
 
-  return 'unknown';
+  // Default Discord to midjourney since it's the most common AI use case on Discord
+  // Users can still change the platform in the panel if needed
+  return 'midjourney';
 }
 
 /**
