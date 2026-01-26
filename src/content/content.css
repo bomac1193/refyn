@@ -2188,88 +2188,70 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-  padding: 10px;
-  width: 180px;
+  padding: 12px;
+  width: auto;
+  min-width: 240px;
   max-width: calc(100vw - 40px);
-  max-height: 260px;
-  overflow-y: auto;
-}
-
-/* Dark scrollbar for like feedback */
-.refyn-like-feedback-inner::-webkit-scrollbar {
-  width: 4px;
-}
-
-.refyn-like-feedback-inner::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.refyn-like-feedback-inner::-webkit-scrollbar-thumb {
-  background: rgba(82, 82, 91, 0.5);
-  border-radius: 2px;
-}
-
-.refyn-like-feedback-inner::-webkit-scrollbar-thumb:hover {
-  background: rgba(82, 82, 91, 0.8);
 }
 
 .refyn-like-feedback-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .refyn-like-feedback-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  color: #A1A1AA;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: #F4F4F5;
 }
 
 .refyn-like-feedback-close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: #52525B;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #71717A;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .refyn-like-feedback-close:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #A1A1AA;
+  background: rgba(255, 255, 255, 0.1);
+  color: #F4F4F5;
 }
 
 .refyn-like-feedback-options {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 4px;
-  margin-bottom: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
 .refyn-like-feedback-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
   background: rgba(26, 26, 30, 0.6);
-  color: #71717A;
-  font-size: 9px;
+  color: #A1A1AA;
+  font-size: 10px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: center;
+  white-space: nowrap;
 }
 
 .refyn-like-feedback-btn:hover {
@@ -2292,18 +2274,18 @@
 
 .refyn-like-feedback-custom {
   display: flex;
-  gap: 4px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .refyn-like-feedback-input {
   flex: 1;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 5px;
+  border-radius: 6px;
   background: rgba(26, 26, 30, 0.8);
   color: #F4F4F5;
-  font-size: 9px;
+  font-size: 11px;
   font-family: inherit;
   outline: none;
   transition: all 0.15s ease;
@@ -2314,44 +2296,49 @@
 }
 
 .refyn-like-feedback-input::placeholder {
-  color: #3F3F46;
+  color: #52525B;
 }
 
 .refyn-like-feedback-submit {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   background: rgba(0, 240, 255, 0.15);
   color: #00F0FF;
   cursor: pointer;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .refyn-like-feedback-submit:hover {
   background: rgba(0, 240, 255, 0.25);
+  transform: scale(1.05);
 }
 
 .refyn-like-feedback-skip {
   text-align: center;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .refyn-like-feedback-skip-btn {
-  padding: 4px 10px;
+  padding: 6px 12px;
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #3F3F46;
-  font-size: 9px;
+  color: #52525B;
+  font-size: 10px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .refyn-like-feedback-skip-btn:hover {
-  color: #71717A;
+  color: #A1A1AA;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 /* =====================================================
