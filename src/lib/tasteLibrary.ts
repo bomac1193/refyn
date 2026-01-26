@@ -39,7 +39,7 @@ export interface TastePack {
 export const TASTE_PRESETS: TastePack[] = [
   {
     version: TASTE_PACK_VERSION,
-    name: 'Cinematic Dark',
+    name: 'Shadow Theatre',
     description: 'Moody, dramatic visuals with rich shadows and cinematic color grading',
     tags: ['cinematic', 'dark', 'moody', 'dramatic'],
     createdAt: new Date().toISOString(),
@@ -87,7 +87,7 @@ export const TASTE_PRESETS: TastePack[] = [
   },
   {
     version: TASTE_PACK_VERSION,
-    name: 'Ethereal Dreams',
+    name: 'Mist & Honey',
     description: 'Soft, dreamy aesthetics with pastel colors and gentle lighting',
     tags: ['ethereal', 'dreamy', 'soft', 'pastel', 'fantasy'],
     createdAt: new Date().toISOString(),
@@ -135,7 +135,7 @@ export const TASTE_PRESETS: TastePack[] = [
   },
   {
     version: TASTE_PACK_VERSION,
-    name: 'Cyberpunk Neon',
+    name: 'Chrome Rain',
     description: 'Futuristic cityscapes with neon lights and high-tech aesthetics',
     tags: ['cyberpunk', 'neon', 'futuristic', 'sci-fi', 'tech'],
     createdAt: new Date().toISOString(),
@@ -183,7 +183,7 @@ export const TASTE_PRESETS: TastePack[] = [
   },
   {
     version: TASTE_PACK_VERSION,
-    name: 'Vintage Film',
+    name: 'Analog Soul',
     description: 'Classic film photography look with grain, warm tones, and nostalgic feel',
     tags: ['vintage', 'film', 'nostalgic', 'analog', 'retro'],
     createdAt: new Date().toISOString(),
@@ -238,7 +238,7 @@ export const TASTE_PRESETS: TastePack[] = [
   },
   {
     version: TASTE_PACK_VERSION,
-    name: 'Minimalist Clean',
+    name: 'Void & Form',
     description: 'Simple, clean aesthetics with lots of negative space and subtle tones',
     tags: ['minimal', 'clean', 'simple', 'modern', 'elegant'],
     createdAt: new Date().toISOString(),
@@ -295,7 +295,7 @@ export const TASTE_PRESETS: TastePack[] = [
   },
   {
     version: TASTE_PACK_VERSION,
-    name: 'Afrofuturism',
+    name: 'Sankofa Rising',
     description: 'Bold African-inspired futurism with vibrant patterns and cultural elements',
     tags: ['afrofuturism', 'african', 'futuristic', 'cultural', 'bold'],
     createdAt: new Date().toISOString(),
