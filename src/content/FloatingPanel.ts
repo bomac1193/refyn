@@ -2582,12 +2582,12 @@ function hideQuickRatePopup(): void {
 // =====================================================
 
 const TRASH_FEEDBACK_PRESETS = [
-  { id: 'poor-quality', label: 'Poor quality', icon: '👎' },
-  { id: 'wrong-style', label: 'Wrong style', icon: '🎨' },
-  { id: 'doesnt-match', label: "Doesn't match prompt", icon: '❌' },
-  { id: 'too-similar', label: 'Too similar', icon: '👯' },
-  { id: 'wrong-composition', label: 'Bad composition', icon: '📐' },
-  { id: 'other', label: 'Other...', icon: '💭' },
+  { id: 'poor-quality', label: 'Poor quality' },
+  { id: 'wrong-style', label: 'Wrong style' },
+  { id: 'doesnt-match', label: "Doesn't match" },
+  { id: 'too-similar', label: 'Too similar' },
+  { id: 'bad-composition', label: 'Bad composition' },
+  { id: 'other', label: 'Other...' },
 ];
 
 let trashFeedbackElement: HTMLElement | null = null;
@@ -2692,7 +2692,7 @@ function handleTrashClick(_event: MouseEvent, trashButton: HTMLElement): void {
 /**
  * Show trash feedback popup
  */
-function showTrashFeedbackPopup(x: number, y: number): void {
+function showTrashFeedbackPopup(_x: number, _y: number): void {
   // Hide all other feedback popups first
   hideAllFeedbackPopups();
 
@@ -2702,9 +2702,9 @@ function showTrashFeedbackPopup(x: number, y: number): void {
   trashFeedbackElement.innerHTML = `
     <div class="refyn-trash-feedback-inner">
       <div class="refyn-trash-feedback-header">
-        <span class="refyn-trash-feedback-title">Why are you removing this?</span>
+        <span class="refyn-trash-feedback-title">What went wrong?</span>
         <button class="refyn-trash-feedback-close" data-action="close">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
@@ -2713,71 +2713,51 @@ function showTrashFeedbackPopup(x: number, y: number): void {
       <div class="refyn-trash-feedback-options">
         ${TRASH_FEEDBACK_PRESETS.map(preset => `
           <button class="refyn-trash-feedback-btn" data-reason="${preset.id}">
-            <span class="refyn-trash-feedback-icon">${preset.icon}</span>
             <span class="refyn-trash-feedback-label">${preset.label}</span>
           </button>
         `).join('')}
       </div>
       <div class="refyn-trash-feedback-custom" id="refyn-trash-custom" style="display: none;">
-        <input type="text" class="refyn-trash-feedback-input" placeholder="Tell us more..." maxlength="100">
+        <input type="text" class="refyn-trash-feedback-input" placeholder="Other reason..." maxlength="100">
         <button class="refyn-trash-feedback-submit" data-action="submit-custom">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
         </button>
       </div>
       <div class="refyn-trash-feedback-skip">
-        <button class="refyn-trash-feedback-skip-btn" data-action="skip">Skip feedback</button>
+        <button class="refyn-trash-feedback-skip-btn" data-action="skip">Skip</button>
       </div>
     </div>
   `;
 
-  // Position popup with collision avoidance
-  const popupWidth = 240;
-  const popupHeight = 260;
-  const panelRect = panel?.getBoundingClientRect();
+  // Position at fixed corner (same as like feedback) with smart positioning
+  const refynPanel = document.getElementById('refyn-panel');
+  const panelRect = refynPanel?.getBoundingClientRect();
   const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
 
-  // Calculate initial position centered on click
-  let xPos = Math.max(10, Math.min(x - popupWidth / 2, viewportWidth - popupWidth - 10));
-  let yPos = y > popupHeight + 20 ? y - popupHeight - 10 : y + 30;
-
-  // Avoid collision with the main panel
-  if (panelRect) {
-    const panelTop = panelRect.top;
-    const panelLeft = panelRect.left;
-    const panelRight = panelRect.right;
-    const panelBottom = panelRect.bottom;
-
-    // Check if popup would overlap with panel
-    const popupRight = xPos + popupWidth;
-    const popupBottom = yPos + popupHeight;
-
-    // If overlapping horizontally and vertically
-    if (popupRight > panelLeft && xPos < panelRight && popupBottom > panelTop && yPos < panelBottom) {
-      // Move popup to the left of the panel
-      if (panelLeft > popupWidth + 20) {
-        xPos = panelLeft - popupWidth - 10;
-      } else {
-        // Or position above the panel
-        yPos = Math.max(10, panelTop - popupHeight - 10);
-      }
-    }
+  // If panel is on the right side, position popup on the left
+  let positionStyle: string;
+  if (panelRect && panelRect.right > viewportWidth - 400) {
+    positionStyle = `
+      position: fixed;
+      bottom: 80px;
+      left: 24px;
+      right: auto;
+      z-index: 2147483646;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
+  } else {
+    positionStyle = `
+      position: fixed;
+      bottom: 80px;
+      right: 24px;
+      z-index: 2147483646;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
   }
 
-  // Ensure popup stays within viewport
-  xPos = Math.max(10, Math.min(xPos, viewportWidth - popupWidth - 10));
-  yPos = Math.max(10, Math.min(yPos, viewportHeight - popupHeight - 10));
-
-  trashFeedbackElement.style.cssText = `
-    position: fixed;
-    left: ${xPos}px;
-    top: ${yPos}px;
-    z-index: 2147483646;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  `;
+  trashFeedbackElement.style.cssText = positionStyle;
 
   // Add event listeners
   trashFeedbackElement.querySelectorAll('.refyn-trash-feedback-btn').forEach(btn => {

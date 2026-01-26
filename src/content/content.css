@@ -1996,14 +1996,11 @@
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(239, 68, 68, 0.08);
-  padding: 10px;
-  width: 220px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  padding: 12px;
+  width: auto;
+  min-width: 240px;
   max-width: calc(100vw - 40px);
-  max-height: calc(100vh - 120px);
-  overflow-y: auto;
 }
 
 .refyn-trash-feedback-header {
@@ -2011,6 +2008,8 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .refyn-trash-feedback-title {
@@ -2023,8 +2022,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border: none;
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.05);
@@ -2040,7 +2039,7 @@
 
 .refyn-trash-feedback-options {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   margin-bottom: 10px;
 }
@@ -2048,17 +2047,18 @@
 .refyn-trash-feedback-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   background: rgba(26, 26, 30, 0.6);
   color: #A1A1AA;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
-  text-align: left;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .refyn-trash-feedback-btn:hover {
@@ -2068,14 +2068,9 @@
 }
 
 .refyn-trash-feedback-btn.active {
-  border-color: rgba(168, 85, 247, 0.5);
-  background: rgba(168, 85, 247, 0.15);
-  color: #C4B5FD;
-}
-
-.refyn-trash-feedback-icon {
-  font-size: 14px;
-  flex-shrink: 0;
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.15);
+  color: #FCA5A5;
 }
 
 .refyn-trash-feedback-label {
@@ -2087,15 +2082,14 @@
 .refyn-trash-feedback-custom {
   display: flex;
   gap: 6px;
-  margin-bottom: 10px;
-  animation: refyn-fade-in 0.2s ease;
+  margin-bottom: 8px;
 }
 
 .refyn-trash-feedback-input {
   flex: 1;
   padding: 8px 10px;
-  border: 1px solid rgba(168, 85, 247, 0.3);
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
   background: rgba(26, 26, 30, 0.8);
   color: #F4F4F5;
   font-size: 11px;
@@ -2105,8 +2099,7 @@
 }
 
 .refyn-trash-feedback-input:focus {
-  border-color: rgba(168, 85, 247, 0.6);
-  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 .refyn-trash-feedback-input::placeholder {
@@ -2120,26 +2113,29 @@
   width: 32px;
   height: 32px;
   border: none;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #A855F7 0%, #EC4899 100%);
-  color: white;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
   cursor: pointer;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .refyn-trash-feedback-submit:hover {
+  background: rgba(239, 68, 68, 0.25);
   transform: scale(1.05);
-  box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
 }
 
 .refyn-trash-feedback-skip {
   text-align: center;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .refyn-trash-feedback-skip-btn {
   padding: 6px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   background: transparent;
   color: #52525B;
   font-size: 10px;
@@ -2149,7 +2145,7 @@
 
 .refyn-trash-feedback-skip-btn:hover {
   color: #A1A1AA;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 @keyframes refyn-fade-in {
