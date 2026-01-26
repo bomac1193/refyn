@@ -10,6 +10,7 @@ import { GenomeTags } from './components/GenomeTags';
 import { SettingsPanel } from './components/SettingsPanel';
 import { HistoryItem } from './components/HistoryItem';
 import { Button } from './components/Button';
+import { DimensionSelector } from './components/DimensionSelector';
 import {
   getApiKey,
   getPromptHistory,
@@ -69,6 +70,7 @@ const App: React.FC = () => {
   const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(null);
   const [deepPreferences, setDeepPreferences] = useState<DeepPreference[]>([]);
   const [profileStats, setProfileStats] = useState({ refined: 0, saved: 0, liked: 0, disliked: 0 });
+  const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
 
   // Initialize
   useEffect(() => {
@@ -105,11 +107,12 @@ const App: React.FC = () => {
     setSaved(savedData);
 
     // Load last used platform and mode from storage
-    const stored = await chrome.storage.local.get([STORAGE_KEYS.LAST_PLATFORM, STORAGE_KEYS.LAST_MODE, 'refyn-moodboard-mode', 'refyn-chaos-intensity']);
+    const stored = await chrome.storage.local.get([STORAGE_KEYS.LAST_PLATFORM, STORAGE_KEYS.LAST_MODE, 'refyn-moodboard-mode', 'refyn-chaos-intensity', 'refyn-selected-dimensions']);
     const lastPlatform = stored[STORAGE_KEYS.LAST_PLATFORM] as Platform | undefined;
     const lastMode = stored[STORAGE_KEYS.LAST_MODE] as OptimizationMode | undefined;
     const moodboardMode = stored['refyn-moodboard-mode'] as boolean | undefined;
     const savedChaosIntensity = stored['refyn-chaos-intensity'] as number | undefined;
+    const savedDimensions = stored['refyn-selected-dimensions'] as string[] | undefined;
 
     if (lastPlatform) {
       setPlatform(lastPlatform);
@@ -122,6 +125,9 @@ const App: React.FC = () => {
     }
     if (typeof savedChaosIntensity === 'number') {
       setChaosIntensity(savedChaosIntensity);
+    }
+    if (Array.isArray(savedDimensions)) {
+      setSelectedDimensions(savedDimensions);
     }
 
     // Detect current platform and auto-grab prompt
@@ -235,6 +241,19 @@ const App: React.FC = () => {
   const handleChaosIntensityChange = (intensity: number) => {
     setChaosIntensity(intensity);
     chrome.storage.local.set({ 'refyn-chaos-intensity': intensity });
+  };
+
+  // Handle dimension selection change
+  const handleDimensionsChange = (dimensions: string[]) => {
+    setSelectedDimensions(dimensions);
+    chrome.storage.local.set({ 'refyn-selected-dimensions': dimensions });
+    // Also apply dimensions to taste profile
+    if (dimensions.length > 0) {
+      chrome.runtime.sendMessage({
+        type: 'APPLY_TASTE_DIMENSIONS',
+        payload: { dimensionIds: dimensions, mode: 'merge' },
+      }).catch(console.error);
+    }
   };
 
   // Handle save to library
@@ -524,11 +543,18 @@ const App: React.FC = () => {
               disabled={loading}
             />
 
-            {/* Style Presets */}
+            {/* Taste Stack - Modular dimension selection */}
+            <DimensionSelector
+              selectedDimensions={selectedDimensions}
+              onDimensionsChange={handleDimensionsChange}
+              disabled={loading}
+            />
+
+            {/* Quick Style Presets */}
             {availablePresets.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-zinc-400">Style Preset</span>
+                  <span className="text-xs font-medium text-zinc-400">Quick Presets</span>
                   {selectedPreset && (
                     <button
                       onClick={() => handlePresetChange(null)}

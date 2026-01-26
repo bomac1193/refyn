@@ -824,14 +824,37 @@ function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: str
   likeFeedbackElement.dataset.platform = platform;
   likeFeedbackElement.dataset.outputId = outputId;
 
-  // Position in bottom right corner
-  likeFeedbackElement.style.cssText = `
-    position: fixed;
-    bottom: 80px;
-    right: 20px;
-    z-index: 2147483647;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  `;
+  // Hide any existing quick-rate popups to avoid overlap
+  document.querySelector('.refyn-quick-rate')?.remove();
+  document.getElementById('refyn-trash-feedback')?.remove();
+
+  // Smart positioning - check if main panel is on the right side
+  const refynPanel = document.getElementById('refyn-panel');
+  const panelRect = refynPanel?.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+
+  // If panel is on the right side, position popup on the left
+  let positionStyle: string;
+  if (panelRect && panelRect.right > viewportWidth - 400) {
+    positionStyle = `
+      position: fixed;
+      bottom: 80px;
+      left: 24px;
+      right: auto;
+      z-index: 2147483646;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
+  } else {
+    positionStyle = `
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      z-index: 2147483646;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
+  }
+
+  likeFeedbackElement.style.cssText = positionStyle;
 
   // Add event listeners
   likeFeedbackElement.querySelectorAll('.refyn-like-feedback-btn').forEach(btn => {

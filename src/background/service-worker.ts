@@ -324,7 +324,42 @@ async function handleMessage(message: Message): Promise<unknown> {
     case 'OPTIMIZE_PROMPT': {
       const { prompt, platform, mode, chaosIntensity, variationIntensity, previousRefinedPrompt, tasteProfile, presetId, preferenceContext, themeId } = message.payload;
       console.log('[Refyn Background] Optimizing prompt for platform:', platform, 'mode:', mode, 'variation:', variationIntensity);
-      const result = await optimizePrompt(prompt, platform, mode, tasteProfile, presetId, preferenceContext, chaosIntensity, themeId as any, variationIntensity, previousRefinedPrompt);
+
+      // Build preference context from deep preferences if not provided
+      let finalPreferenceContext = preferenceContext;
+      if (!finalPreferenceContext) {
+        try {
+          const deepPrefs = await getDeepPreferences();
+          if (deepPrefs && deepPrefs.keywordScores && Object.keys(deepPrefs.keywordScores).length > 0) {
+            const likedKeywords: string[] = [];
+            const avoidKeywords: string[] = [];
+
+            for (const [_category, keywords] of Object.entries(deepPrefs.keywordScores)) {
+              for (const [keyword, score] of Object.entries(keywords)) {
+                if (score >= 2) {
+                  likedKeywords.push(keyword);
+                } else if (score <= -2) {
+                  avoidKeywords.push(keyword);
+                }
+              }
+            }
+
+            if (likedKeywords.length > 0 || avoidKeywords.length > 0) {
+              finalPreferenceContext = `\n\nUSER TASTE PREFERENCES (from learned taste stack):\n`;
+              if (likedKeywords.length > 0) {
+                finalPreferenceContext += `STRONGLY INCORPORATE: ${likedKeywords.slice(0, 20).join(', ')}\n`;
+              }
+              if (avoidKeywords.length > 0) {
+                finalPreferenceContext += `AVOID: ${avoidKeywords.slice(0, 10).join(', ')}\n`;
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[Refyn Background] Failed to get deep preferences:', e);
+        }
+      }
+
+      const result = await optimizePrompt(prompt, platform, mode, tasteProfile, presetId, finalPreferenceContext, chaosIntensity, themeId as any, variationIntensity, previousRefinedPrompt);
 
       if (result.success && result.optimizedPrompt) {
         // Add to history
@@ -752,6 +787,9 @@ chrome.runtime.onInstalled.addListener((details) => {
     });
   } else if (details.reason === 'update') {
     console.log('[Refyn] Extension updated to version', chrome.runtime.getManifest().version);
+  } else if (details.reason === 'chrome_update') {
+    console.log('[Refyn] Browser updated, reinitializing auth...');
+    initializeAuth().catch(console.error);
   }
 
   // Create context menu items
@@ -770,6 +808,12 @@ chrome.runtime.onInstalled.addListener((details) => {
   } catch (e) {
     console.log('[Refyn] Context menus already exist');
   }
+});
+
+// Handle browser startup - restore auth session
+chrome.runtime.onStartup.addListener(() => {
+  console.log('[Refyn] Browser started, restoring auth session...');
+  initializeAuth().catch(console.error);
 });
 
 // Handle context menu clicks
@@ -815,6 +859,39 @@ async function initializeProcessCapture() {
     console.log('[Refyn] Process capture initialized');
   } catch (error) {
     console.error('[Refyn] Failed to initialize process capture:', error);
+  }
+}
+
+// Initialize authentication - restore session on startup
+async function initializeAuth() {
+  try {
+    console.log('[Refyn] Restoring auth session...');
+
+    // Check if Supabase is configured
+    const configured = await isSupabaseConfigured();
+    if (!configured) {
+      console.log('[Refyn] Supabase not configured, skipping auth restore');
+      return;
+    }
+
+    // Get auth state - this will attempt to refresh the session from stored tokens
+    const authState = await getAuthState();
+
+    if (authState.isLoggedIn && authState.user) {
+      console.log('[Refyn] Auth session restored for:', authState.user.email);
+
+      // Optionally sync from cloud on restore
+      try {
+        await syncFromCloud();
+        console.log('[Refyn] Synced from cloud after auth restore');
+      } catch (syncError) {
+        console.error('[Refyn] Failed to sync from cloud:', syncError);
+      }
+    } else {
+      console.log('[Refyn] No active auth session found');
+    }
+  } catch (error) {
+    console.error('[Refyn] Failed to initialize auth:', error);
   }
 }
 
@@ -875,7 +952,19 @@ ${content}`
 }
 
 // Run initialization
-initializeProcessCapture();
+async function initialize() {
+  console.log('[Refyn] Starting service worker initialization...');
+
+  // Initialize auth first to restore user session
+  await initializeAuth();
+
+  // Then initialize process capture
+  await initializeProcessCapture();
+
+  console.log('[Refyn] Background service worker fully initialized');
+}
+
+initialize();
 
 // Periodically try to submit pending contributions (every 5 minutes)
 setInterval(() => {
@@ -884,4 +973,17 @@ setInterval(() => {
   });
 }, 5 * 60 * 1000);
 
-console.log('[Refyn] Background service worker initialized');
+// Periodically refresh auth session to prevent expiry (every 10 minutes)
+setInterval(async () => {
+  try {
+    const configured = await isSupabaseConfigured();
+    if (configured) {
+      const authState = await getAuthState();
+      if (authState.isLoggedIn) {
+        console.log('[Refyn] Auth session refreshed');
+      }
+    }
+  } catch (error) {
+    console.error('[Refyn] Failed to refresh auth session:', error);
+  }
+}, 10 * 60 * 1000);

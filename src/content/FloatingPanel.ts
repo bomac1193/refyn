@@ -2430,14 +2430,40 @@ export function flashLearningIndicator(message?: string): void {
 }
 
 /**
+ * Global popup coordination - ensures only one feedback popup shows at a time
+ */
+function hideAllFeedbackPopups(): void {
+  hideQuickRatePopup();
+  hideTrashFeedbackPopup();
+  // Also hide any like feedback popups from OutputObserver
+  document.getElementById('refyn-like-feedback')?.remove();
+}
+
+/**
+ * Get smart position for popups - avoids the main panel area
+ */
+function getSmartPopupPosition(): { bottom: number; right: number; left?: number } {
+  const panelRect = panel?.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+
+  // If panel is visible and on the right side, position popup on the left
+  if (panelRect && panelRect.right > viewportWidth - 400) {
+    return { bottom: 80, left: 24, right: -1 };
+  }
+
+  // Otherwise position on the right but above the panel area
+  return { bottom: 80, right: 24 };
+}
+
+/**
  * Show quick-rate popup after a new output is detected
  */
 let quickRateElement: HTMLElement | null = null;
 let quickRateTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export function showQuickRatePopup(outputId: string, prompt?: string): void {
-  // Remove existing popup
-  hideQuickRatePopup();
+  // Hide all other feedback popups first
+  hideAllFeedbackPopups();
 
   quickRateElement = document.createElement('div');
   quickRateElement.className = 'refyn-quick-rate';
@@ -2468,6 +2494,29 @@ export function showQuickRatePopup(outputId: string, prompt?: string): void {
   // Store output info for rating
   quickRateElement.dataset.outputId = outputId;
   quickRateElement.dataset.prompt = prompt || '';
+
+  // Smart positioning to avoid main panel
+  const pos = getSmartPopupPosition();
+  if (pos.left !== undefined && pos.left >= 0) {
+    quickRateElement.style.cssText = `
+      position: fixed;
+      bottom: ${pos.bottom}px;
+      left: ${pos.left}px;
+      right: auto;
+      z-index: 2147483646;
+      animation: refyn-quick-rate-in 0.3s ease;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
+  } else {
+    quickRateElement.style.cssText = `
+      position: fixed;
+      bottom: ${pos.bottom}px;
+      right: ${pos.right}px;
+      z-index: 2147483646;
+      animation: refyn-quick-rate-in 0.3s ease;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
+  }
 
   // Add click handlers
   quickRateElement.querySelectorAll('.refyn-quick-rate-btn').forEach(btn => {
@@ -2644,7 +2693,8 @@ function handleTrashClick(_event: MouseEvent, trashButton: HTMLElement): void {
  * Show trash feedback popup
  */
 function showTrashFeedbackPopup(x: number, y: number): void {
-  hideTrashFeedbackPopup();
+  // Hide all other feedback popups first
+  hideAllFeedbackPopups();
 
   trashFeedbackElement = document.createElement('div');
   trashFeedbackElement.id = 'refyn-trash-feedback';
@@ -2683,17 +2733,49 @@ function showTrashFeedbackPopup(x: number, y: number): void {
     </div>
   `;
 
-  // Position popup
-  const popupWidth = 260;
-  const popupHeight = 280;
-  const xPos = Math.max(10, Math.min(x - popupWidth / 2, window.innerWidth - popupWidth - 10));
-  const yPos = y > popupHeight + 20 ? y - popupHeight - 10 : y + 30;
+  // Position popup with collision avoidance
+  const popupWidth = 240;
+  const popupHeight = 260;
+  const panelRect = panel?.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Calculate initial position centered on click
+  let xPos = Math.max(10, Math.min(x - popupWidth / 2, viewportWidth - popupWidth - 10));
+  let yPos = y > popupHeight + 20 ? y - popupHeight - 10 : y + 30;
+
+  // Avoid collision with the main panel
+  if (panelRect) {
+    const panelTop = panelRect.top;
+    const panelLeft = panelRect.left;
+    const panelRight = panelRect.right;
+    const panelBottom = panelRect.bottom;
+
+    // Check if popup would overlap with panel
+    const popupRight = xPos + popupWidth;
+    const popupBottom = yPos + popupHeight;
+
+    // If overlapping horizontally and vertically
+    if (popupRight > panelLeft && xPos < panelRight && popupBottom > panelTop && yPos < panelBottom) {
+      // Move popup to the left of the panel
+      if (panelLeft > popupWidth + 20) {
+        xPos = panelLeft - popupWidth - 10;
+      } else {
+        // Or position above the panel
+        yPos = Math.max(10, panelTop - popupHeight - 10);
+      }
+    }
+  }
+
+  // Ensure popup stays within viewport
+  xPos = Math.max(10, Math.min(xPos, viewportWidth - popupWidth - 10));
+  yPos = Math.max(10, Math.min(yPos, viewportHeight - popupHeight - 10));
 
   trashFeedbackElement.style.cssText = `
     position: fixed;
     left: ${xPos}px;
     top: ${yPos}px;
-    z-index: 2147483647;
+    z-index: 2147483646;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   `;
 
