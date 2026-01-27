@@ -482,6 +482,197 @@ Based on all research, here's a systematic framework for controlled chaos:
 
 ---
 
+## Part 9: Underground & Experimental Techniques
+
+*The truly strange territory - exploiting failure modes, model collapse aesthetics, and undocumented behaviors.*
+
+### Model Collapse as Aesthetic
+
+**"Habsburg AI" / "AI Inbreeding"**
+
+When AI models train on their own outputs recursively, they undergo "model collapse" - a deterioration that produces increasingly homogeneous, strange results. Researchers call this "Habsburg AI" or "AI cannibalism."
+
+**The Deterioration Pattern:**
+1. **Early collapse**: Minority/edge-case data disappears first
+2. **Mid collapse**: Different concepts blur together
+3. **Late collapse**: Outputs converge to "visual elevator music" - generic, samey results
+
+**Research Finding:** A December 2025 study in *Patterns* found that autonomous AI-to-AI creative loops across 700 trajectories ALL converged to nearly identical visuals regardless of starting prompts - revealing deep architectural constraints.
+
+**Creative Application:** Deliberately feeding outputs back as inputs through multiple generations can create unique "degraded" aesthetics - like photocopying a photocopy until it becomes abstract.
+
+*Sources: [Nature - Model Collapse](https://www.nature.com/articles/s41586-024-07566-y), [Patterns Journal Study](https://www.cell.com/patterns/fulltext/S2666-3899(25)00299-5), [IBM Model Collapse](https://www.ibm.com/think/topics/model-collapse)*
+
+---
+
+### Extreme CFG Scale Exploitation
+
+**What happens at CFG 30+:**
+- Facial structures become unrecognizable
+- Rainbow-like color distortions appear
+- Features fragment into "glitchy mosaic"
+- Images look like "fractal DMT trips"
+- Complete coherence breakdown
+
+**The Terminal setting:** Some users report that running Stable Diffusion via Terminal (bypassing UI limits) allows CFG values up to 999 for maximum distortion.
+
+**Dynamic Thresholding Workaround:** The "Dynamic Thresholding" extension allows high CFG (50+) while preventing total "burn" - enabling controlled extremity.
+
+*Sources: [Stable Diffusion CFG Guide](https://stable-diffusion-art.com/samplers/), [Dynamic Thresholding Extension](https://github.com/mcmonkeyprojects/sd-dynamic-thresholding)*
+
+---
+
+### Ancestral Sampler Chaos
+
+Samplers marked with "a" (Euler a, DPM2 a) add random noise at each step - they NEVER converge.
+
+**Why this matters:**
+- Same seed + same parameters = different results each time
+- More steps ≠ better quality, just different variations
+- The randomness is architectural, not a bug
+
+**Creative use:** Use ancestral samplers when you WANT unpredictability. Run the same prompt 100 times and curate the chaos.
+
+**DPM++ SDE** has similar non-convergent behavior - images "fluctuate significantly" as step counts change.
+
+*Source: [Complete Sampler Guide](https://stable-diffusion-art.com/samplers/)*
+
+---
+
+### Cursed LoRAs & Intentional Failures
+
+**From Civitai's underground:**
+
+1. **"Cursed Images (Nightmare Fuel)"** - Originally a failed model training that produced nightmare-worthy outputs. Creator notes: "Model for shexyo that ended in failure but might be good for nightmare fuel."
+
+2. **"EvilLoRA"** - Designed to "infuse darkness and horror into otherwise ordinary scenes." Can turn cake or lasagna into nightmare fuel.
+
+3. **"Cool Creepy Dark Art"** - A LoRA extracted from a fine-tune that "died mid-training" - trained without captions on films MANDY and BEYOND THE BLACK RAINBOW.
+
+4. **"Cursed (Flux LoRA)"** - Created specifically to bypass Flux's strict filters for horror content. Keywords: "many cuts and wounds with blood," "undead figure," "sharp teeth."
+
+**The Pattern:** Many interesting "cursed" models come from FAILED training runs that produced unexpected but aesthetically interesting results.
+
+*Sources: [Civitai Cursed Images LoRA](https://civitai.com/models/920933/cursed-images-nightmare-fuel-style), [EvilLoRA](https://civitai.com/models/95377/evillora), [Flux Cursed LoRA](https://civitai.com/models/655938/cursed-flux-lora)*
+
+---
+
+### CLIP Interrogator Glitches
+
+CLIP Interrogator reverse-engineers prompts from images, but produces strange outputs:
+
+**Documented glitch:** One analysis produced: "a woman with purple hair and a necklace on her neck and a necklace on her neck, with a necklace on her neck, by Ilya Kuvshinov wearing a necklace around her neck, wearing a necklace around her neck"
+
+**Why it happens:** CLIP matches against pre-defined keyword lists that may not align with image content, creating surreal, repetitive descriptions.
+
+**Creative use:** Feed CLIP Interrogator outputs directly into generation for recursive weirdness - the model's "misunderstanding" becomes the prompt.
+
+*Source: [CLIP Interrogator Guide](https://skywork.ai/skypage/en/clip-interrogator-reverse-prompting/1977579135663403008)*
+
+---
+
+### Negative Embedding Manipulation
+
+**Standard use:** Negative embeddings (EasyNegative, bad_prompt) improve quality by avoiding trained "bad" patterns.
+
+**Underground technique:** Use negative embeddings at LOW strength (0.2-0.4) to INTENTIONALLY introduce controlled imperfections:
+```
+Negative: EasyNegative:0.3
+```
+
+This partially reintroduces the "errors" the embedding was trained to avoid.
+
+**bad_prompt v2 quirk:** Can unintentionally shift art style toward anime. Some artists exploit this for style transfer.
+
+*Sources: [Textual Inversion Guide](https://aituts.com/textual-inversion/), [bad_prompt Embedding](https://civitai.com/models/55700/badprompt-negative-embedding)*
+
+---
+
+### AI Hallucination Harvesting
+
+AI hallucinations in images - extra fingers, impossible anatomy, merged faces - are usually considered failures. Underground artists harvest them deliberately.
+
+**Reliable hallucination triggers:**
+- Hands interacting with complex objects
+- Multiple people in close proximity
+- Reflective surfaces with faces
+- Text rendering attempts
+- Animals with human features
+
+**DeepDream aesthetic:** The "puppy-slug" effect from DeepDream - familiar features in impossible arrangements - creates "vertiginous sensation when the mind tries to reconcile familiar features in unnatural, physically impossible arrangements."
+
+*Sources: [AI Hallucination Examples](https://journal.everypixel.com/ai-hallucination-examples), [DeepDream Art Analysis](https://studioamelia.medium.com/the-art-of-deepdream-and-dall-e-4455d13132ca)*
+
+---
+
+### Secret SREF Codes
+
+Midjourney's `--sref` (style reference) codes are numerical values that lock specific aesthetics.
+
+**The discovery:** Once you find a style you like, the code is FIXED. Community members trade codes like currency.
+
+**Underground markets:** Artists share successful SREF codes on:
+- Private Discord servers
+- Reddit's r/midjourney
+- Twitter/X with #sref hashtag
+- Civitai comments sections
+
+**Random exploration:**
+```
+--sref random
+```
+Generates random style codes for pure experimentation.
+
+**Code chaining:** Combine multiple SREF codes for hybrid aesthetics:
+```
+--sref 579955689 382847261 194738292
+```
+
+*Sources: [SREF Codes Guide](https://medium.com/@ashley-insights/the-secret-number-how-to-find-the-midjourney-sref-code-and-clone-any-aesthetic-d4fb043357c8), [Hidden Worlds SREF](https://medium.com/complete-midjourney/midjourney-sref-codes-unlock-the-top-10-hidden-worlds-discovered-by-the-ai-community-f1b474ced7cf)*
+
+---
+
+### The "Final Step Glitch"
+
+A documented bug where "generated images are screwed up in the last step(s)" - generation looks great during processing "until the last steps. Then it is as if there was a sort of sharpening taking place in certain places."
+
+**With LMS sampler:** "The problem areas are just made into glitchy mosaic in the last steps."
+
+**Creative exploitation:** Stop generation 1-2 steps before completion to capture the "pre-glitch" state, or deliberately let the glitch occur for aesthetic effect.
+
+*Source: [Final Step Bug Discussion](https://github.com/AUTOMATIC1111/stable-diffusion-webui/issues/7244)*
+
+---
+
+### ControlNet Skeleton Manipulation
+
+Using "wrong" or impossible OpenPose skeletons:
+
+**Extra limbs technique:** Set ControlNet weight to 2.0+ to force the model to render impossible anatomy instead of replacing limbs with background.
+
+**The resistance:** Models naturally try to "correct" impossible skeletons. Higher weights = more force to render the impossible.
+
+**Multi-ControlNet stacking:** Combine OpenPose with Canny + Depth maps to force surreal anatomy while maintaining coherent style.
+
+*Source: [OpenPose ControlNet Discussions](https://github.com/Mikubill/sd-webui-controlnet/discussions/)*
+
+---
+
+### Low Denoising Noise Injection
+
+**img2img at extreme low denoising (0.1-0.3):**
+- Output stays very close to input
+- Small, dream-like modifications accumulate
+- Multiple passes create gradual "drift"
+
+**Recursive application:** Feed output back as input repeatedly at low denoising for slow-motion transformation into abstraction.
+
+**Hidden settings:** `initial_noise_multiplier` and `img2img_extra_noise` in quicksettings allow fine-tuning noise injection for experimental results.
+
+*Source: [img2img Denoising Guide](https://onceuponanalgorithm.org/guide-what-denoising-strength-does-and-how-to-use-it-in-stable-diffusion/)*
+
+---
+
 ## Conclusion: Inventing New Styles
 
 The research reveals several patterns for pushing AI into genuinely novel aesthetic territory:
@@ -532,6 +723,23 @@ The frontier of AI art isn't in perfecting photorealism - it's in the controlled
 - [PromptHero Horror Prompts](https://prompthero.com/horror-prompts)
 - [Galaxy.ai Glitch Art Prompts](https://blog.galaxy.ai/midjourney-prompts-for-glitch-art)
 - [Stable Diffusion Cursed Prompts](https://stablediffusionweb.com/prompts/cursed-images)
+
+### Underground & Experimental
+- [Nature - AI Model Collapse](https://www.nature.com/articles/s41586-024-07566-y)
+- [Patterns Journal - Visual Convergence Study](https://www.cell.com/patterns/fulltext/S2666-3899(25)00299-5)
+- [IBM - Model Collapse Explained](https://www.ibm.com/think/topics/model-collapse)
+- [VentureBeat - AI Feedback Loop Warning](https://venturebeat.com/ai/the-ai-feedback-loop-researchers-warn-of-model-collapse-as-ai-trains-on-ai-generated-content)
+- [Dynamic Thresholding Extension](https://github.com/mcmonkeyprojects/sd-dynamic-thresholding)
+- [Stable Diffusion Samplers Deep Dive](https://stable-diffusion-art.com/samplers/)
+- [Civitai Cursed Images LoRA](https://civitai.com/models/920933/cursed-images-nightmare-fuel-style)
+- [Civitai EvilLoRA](https://civitai.com/models/95377/evillora)
+- [Civitai Flux Cursed LoRA](https://civitai.com/models/655938/cursed-flux-lora)
+- [CLIP Interrogator Repository](https://github.com/pharmapsychotic/clip-interrogator)
+- [Textual Inversion / Embeddings Guide](https://aituts.com/textual-inversion/)
+- [AI Hallucination Examples](https://journal.everypixel.com/ai-hallucination-examples)
+- [SREF Codes - Clone Any Aesthetic](https://medium.com/@ashley-insights/the-secret-number-how-to-find-the-midjourney-sref-code-and-clone-any-aesthetic-d4fb043357c8)
+- [img2img Denoising Guide](https://onceuponanalgorithm.org/guide-what-denoising-strength-does-and-how-to-use-it-in-stable-diffusion/)
+- [ControlNet OpenPose Discussions](https://github.com/Mikubill/sd-webui-controlnet/discussions/)
 
 ---
 
