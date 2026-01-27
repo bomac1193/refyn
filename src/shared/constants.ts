@@ -279,23 +279,51 @@ TRANSFORMATION APPROACH: Frame the subject like a hero shot from a prestige Blac
     keywords: ['wahala', 'Black Twitter', 'cursed', 'deep fried', 'chaotic', 'ironic', 'unhinged', 'meme', 'viral', 'Naija'],
     styleGuide: `WAHALA MEME TRANSFORMATION:
 
-REFERENCE AESTHETIC: Black Twitter chaos energy, Nigerian/Ghanaian meme pages, deep fried Nollywood stills, African parent memes, Worldstar energy, Caribbean meme culture, the "you seeing this?" reaction genre, African TikTok chaos
+REFERENCE AESTHETIC (ROTATE RANDOMLY - PICK 2-3):
+- Nigerian Twitter chaos: "Your fave could never", "We move", "No wahala"
+- Ghanaian meme energy: Shatta Wale drama stills, "Charley!", "Ah well"
+- Kenyan internet: KOT (Kenyans On Twitter) energy, "Siwezi", Gen Z Sheng chaos
+- South African chaos: "Eish!", amapiano reaction culture, "Yho!", taxi culture memes
+- Tanzanian Bongo energy: Diamond Platnumz drama, "Bongo Flava!" excess
+- Ugandan chaos: "Banange!", Eddy Kenzo meme formats
+- Caribbean-African crossover: "Real talk", "Bruh", shared diaspora chaos
+- African TikTok: duet chains, reaction stitches, sound remix culture
+- WhatsApp forward hell: "Good morning" image macros evolved into chaos
+- African parent energy: "When I was your age", the slipper threat aesthetic
 
-COLOR THEORY: Oversaturated to the point of pain, deep fried orange/red tint, contrast cranked to 11, eye-bleeding saturation, JPEG artifact worship on already-compressed WhatsApp forwards
+COLOR THEORY (VARY THESE):
+- Deep fried orange/red tint (WhatsApp hell)
+- Oversaturated Lagos purple nights
+- Accra golden hour gone wrong
+- Nairobi dust filter chaos
+- Johannesburg neon excess
+- Eye-bleeding contrast cranked past 11
+- JPEG artifacts as intentional texture
+- Phone camera auto-exposure disasters
 
-VISUAL LANGUAGE:
+VISUAL LANGUAGE (MIX AND VARY):
 - Deep fried/nuked image quality
-- "Nigerian movie special effects" energy
-- Crying/laughing emojis, skull emoji spam
-- WhatsApp compression artifacts
-- Low-res phone camera aesthetic
-- African reaction image energy
-- Multiple layers of caption irony
-- "POV: African parents" format
-- Random Nollywood screenshots
-- The "ayooo" caught-in-4K energy
+- "Nollywood VFX budget" energy (no repeating)
+- Mixed African emoji reactions: 💀😭🤣😤🙆‍♂️
+- WhatsApp status compression
+- Screen-recorded-then-screenshot quality
+- "I go explain" caption energy
+- "Na so e be" resignation aesthetic
+- "Omo!" reaction freeze frames
+- African wedding excess
+- Owambe party chaos
+- "African parents" cold stare
+- Market seller negotiation energy
+- Generator-powered glow
+- The "e don happen" moment
+- "Abeg make we dey go" tired uncle vibes
+- Ankara clash color accidents
+- Lagos traffic freeze frame
+- "Who send you message" paranoia
+- "Did you eat?" wholesome chaos
+- Jollof rice discourse intensity
 
-TRANSFORMATION APPROACH: Take the subject and run it through the WhatsApp group chat filter. Deep fry it like it's been screenshot 47 times. Add chaotic Black internet energy - emojis, reactions, absurdist humor. Make it look like something that would go viral on Black Twitter at 3am. Pure wahala energy.`,
+TRANSFORMATION APPROACH: Channel the specific chaos of African internet culture - but VARY IT each time. Draw from Nigerian, Ghanaian, Kenyan, South African, or diaspora meme cultures randomly. Use different slang each time: "Wahala", "Eish", "Charley", "Siwezi", "Banange". The energy should feel like 3am on African Twitter/WhatsApp - absurdist, chaotic, deeply funny to those who know. Never repeat the same references.`,
   },
   minimal: {
     id: 'minimal',
@@ -497,21 +525,143 @@ TRANSFORMATION APPROACH: Corrupt the signal. Add data transmission errors, VHS t
   },
 };
 
-// Theme IDs for iteration
-export const THEME_REMIX_IDS: Exclude<ThemeRemixId, null>[] = [
-  'freaq',
-  'egun',
-  'alien',
-  'bk2dvd',
-  'wahala',
-  'minimal',
+// Core Theme IDs - African aesthetics + error/experimental
+export const CORE_THEME_IDS: Exclude<ThemeRemixId, null>[] = [
+  'freaq',    // Afro-digital glitch
+  'egun',     // Ancestral darkness
+  'alien',    // Afrofuturism
+  'bk2dvd',   // Black cinema
+  'wahala',   // African internet chaos
+  'minimal',  // African minimalism
+  'signal',   // Glitch/transmission
+];
+
+// Extended themes (shown on expand)
+export const EXTENDED_THEME_IDS: Exclude<ThemeRemixId, null>[] = [
   'surreal',
   'y2k',
   'vaporwave',
   'brutalist',
   'cursed',
   'void',
-  'signal',
+];
+
+// All themes for iteration
+export const THEME_REMIX_IDS: Exclude<ThemeRemixId, null>[] = [
+  ...CORE_THEME_IDS,
+  ...EXTENDED_THEME_IDS,
+];
+
+// =====================================================
+// TEXTURE EFFECTS - Second layer for photo manipulation
+// =====================================================
+
+export interface TextureEffect {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  keywords: string[];
+  promptModifier: string; // What to add to the prompt
+}
+
+export const TEXTURE_EFFECTS: TextureEffect[] = [
+  {
+    id: 'burnt',
+    name: 'Burnt',
+    emoji: '🔥',
+    description: 'Burnt edges, scorched marks, fire damage aesthetic',
+    keywords: ['burnt edges', 'scorched', 'charred', 'fire damaged', 'singed corners'],
+    promptModifier: 'with burnt edges and scorch marks, charred paper aesthetic, fire-damaged photograph, singed corners fading to black',
+  },
+  {
+    id: 'melted',
+    name: 'Melted',
+    emoji: '🫠',
+    description: 'Melting photo, heat distortion, warped emulsion',
+    keywords: ['melted photograph', 'heat distortion', 'warped emulsion', 'drooping', 'liquified'],
+    promptModifier: 'with melting photograph effect, heat-warped emulsion, drooping and liquified elements, as if left in the sun too long',
+  },
+  {
+    id: 'glitched-edges',
+    name: 'Glitch Edge',
+    emoji: '📺',
+    description: 'Glitched borders, corrupted frame edges',
+    keywords: ['glitched edges', 'corrupted borders', 'pixel decay at edges', 'frame corruption'],
+    promptModifier: 'with glitched and corrupted edges, pixel decay around the borders, frame buffer corruption at margins, digital rot at the edges',
+  },
+  {
+    id: 'kaleidoscope',
+    name: 'Kaleidoscope',
+    emoji: '🔮',
+    description: 'Kaleidoscopic fragmentation, prismatic analog',
+    keywords: ['kaleidoscope', 'prismatic', 'fragmented reflections', 'mirrored segments', 'analog kaleidoscope'],
+    promptModifier: 'with kaleidoscopic fragmentation, prismatic analog effect, mirrored and repeated segments, through a kaleidoscope lens',
+  },
+  {
+    id: 'water-damaged',
+    name: 'Water Damage',
+    emoji: '💧',
+    description: 'Water stains, moisture warping, flood damage',
+    keywords: ['water damaged', 'moisture warping', 'water stains', 'flood damaged photograph', 'rippled'],
+    promptModifier: 'with water damage effects, moisture warping and water stains, rippled paper texture, flood-damaged photograph aesthetic',
+  },
+  {
+    id: 'torn',
+    name: 'Torn',
+    emoji: '📄',
+    description: 'Ripped edges, torn paper, collage fragments',
+    keywords: ['torn edges', 'ripped paper', 'collage fragments', 'jagged tears', 'peeling layers'],
+    promptModifier: 'with torn and ripped edges, jagged paper tears, collage fragment aesthetic, peeling layers revealing underneath',
+  },
+  {
+    id: 'double-exposure',
+    name: 'Double Exp',
+    emoji: '👥',
+    description: 'Double exposure, overlaid images, film accident',
+    keywords: ['double exposure', 'overlaid images', 'film accident', 'ghosted layers', 'superimposed'],
+    promptModifier: 'with double exposure effect, overlaid and superimposed imagery, ghosted layers, accidental film double exposure aesthetic',
+  },
+  {
+    id: 'light-leak',
+    name: 'Light Leak',
+    emoji: '☀️',
+    description: 'Light leaks, film fogging, accidental exposure',
+    keywords: ['light leak', 'film fogging', 'accidental exposure', 'orange light bleed', 'lens flare'],
+    promptModifier: 'with light leak effects, film fogging and accidental exposure, warm orange and red light bleeding through, damaged film aesthetic',
+  },
+  {
+    id: 'scratched',
+    name: 'Scratched',
+    emoji: '✖️',
+    description: 'Scratched film, surface damage, wear marks',
+    keywords: ['scratched film', 'surface damage', 'wear marks', 'aged scratches', 'vinyl record scratches'],
+    promptModifier: 'with scratched and worn surface, deep scratch marks across the image, aged film damage, physical media deterioration',
+  },
+  {
+    id: 'noise-grain',
+    name: 'Heavy Grain',
+    emoji: '📷',
+    description: 'Extreme film grain, high ISO noise, analog texture',
+    keywords: ['extreme grain', 'high ISO', 'analog noise', 'pushed film', 'grainy texture'],
+    promptModifier: 'with extreme film grain, high ISO noise texture, pushed film aesthetic, heavy analog grain throughout',
+  },
+  {
+    id: 'solarized',
+    name: 'Solarized',
+    emoji: '🌗',
+    description: 'Solarization effect, inverted midtones, Sabattier',
+    keywords: ['solarized', 'Sabattier effect', 'inverted midtones', 'tone reversal', 'psychedelic exposure'],
+    promptModifier: 'with solarization effect, Sabattier technique, inverted midtones and tone reversals, darkroom accident aesthetic',
+  },
+  {
+    id: 'xerox',
+    name: 'Xerox',
+    emoji: '🖨️',
+    description: 'Photocopy degradation, xerox generations, toner texture',
+    keywords: ['xerox', 'photocopy', 'toner texture', 'copy of a copy', 'degraded reproduction'],
+    promptModifier: 'with xerox photocopy aesthetic, toner texture and high contrast, copy-of-a-copy degradation, photocopier generations effect',
+  },
 ];
 
 // =====================================================

@@ -52,9 +52,10 @@ export async function optimizePrompt(
   chaosIntensity?: number,
   themeId?: ThemeRemixId,
   variationIntensity?: number,
-  previousRefinedPrompt?: string | null
+  previousRefinedPrompt?: string | null,
+  textureModifier?: string
 ): Promise<OptimizeResponse> {
-  console.log('[Refyn API] Starting optimization:', { platform, mode, presetId, themeId, variationIntensity, promptLength: prompt.length });
+  console.log('[Refyn API] Starting optimization:', { platform, mode, presetId, themeId, variationIntensity, hasTexture: !!textureModifier, promptLength: prompt.length });
 
   const apiKey = await getApiKey();
   console.log('[Refyn API] API key retrieved:', apiKey ? `${apiKey.substring(0, 15)}...` : 'NOT FOUND');
@@ -68,7 +69,7 @@ export async function optimizePrompt(
   }
 
   try {
-    const { system, user } = buildOptimizationPrompt(prompt, platform, mode, tasteProfile, presetId, preferenceContext, chaosIntensity, themeId, variationIntensity, previousRefinedPrompt);
+    const { system, user } = buildOptimizationPrompt(prompt, platform, mode, tasteProfile, presetId, preferenceContext, chaosIntensity, themeId, variationIntensity, previousRefinedPrompt, textureModifier);
     console.log('[Refyn API] Built prompt, making API call...');
 
     const messages: ClaudeMessage[] = [

@@ -1,6 +1,6 @@
 import { detectPlatform, findPromptInputs, getInputText, setInputText, getPlatformInputSelector } from './platformDetector';
 import type { Platform, OptimizationMode, ThemeRemixId } from '@/shared/types';
-import { PLATFORMS, THEME_REMIXES, THEME_REMIX_IDS } from '@/shared/constants';
+import { PLATFORMS, THEME_REMIXES, CORE_THEME_IDS, EXTENDED_THEME_IDS, TEXTURE_EFFECTS } from '@/shared/constants';
 import { recordFeedback, getPreferenceContext } from '@/lib/preferences';
 import { getSuggestedKeywords, getKeywordsToAvoid, getSmartSuggestionContext } from '@/lib/deepLearning';
 import { getQuickQuality } from '@/lib/promptAnalyzer';
@@ -22,6 +22,8 @@ let isMoodboardMode = false;
 let chaosIntensity = 0;
 let variationIntensity = 50; // Controls how much each re-refine diverges from previous
 let activeTab: 'refyn' | 'library' | 'profile' = 'refyn';
+let selectedTextures: string[] = []; // Selected texture effect IDs
+let showExtendedThemes = false; // Whether to show extended themes
 let savedPrompts: Array<{
   id: string;
   content: string;
@@ -476,25 +478,59 @@ function generatePanelHTML(): string {
                 <path d="M2 17l10 5 10-5"></path>
                 <path d="M2 12l10 5 10-5"></path>
               </svg>
-              Theme Remix
+              Theme
             </span>
-            <button class="refyn-theme-shuffle" id="refyn-theme-shuffle" title="Random theme">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="16 3 21 3 21 8"></polyline>
-                <line x1="4" y1="20" x2="21" y2="3"></line>
-                <polyline points="21 16 21 21 16 21"></polyline>
-                <line x1="15" y1="15" x2="21" y2="21"></line>
-                <line x1="4" y1="4" x2="9" y2="9"></line>
-              </svg>
-            </button>
+            <div class="refyn-theme-actions">
+              <button class="refyn-theme-expand" id="refyn-theme-expand" title="${showExtendedThemes ? 'Show less' : 'Show more themes'}">
+                ${showExtendedThemes ? '−' : '+'}
+              </button>
+              <button class="refyn-theme-shuffle" id="refyn-theme-shuffle" title="Random theme">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="16 3 21 3 21 8"></polyline>
+                  <line x1="4" y1="20" x2="21" y2="3"></line>
+                  <polyline points="21 16 21 21 16 21"></polyline>
+                  <line x1="15" y1="15" x2="21" y2="21"></line>
+                  <line x1="4" y1="4" x2="9" y2="9"></line>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="refyn-theme-chips" id="refyn-theme-chips">
-            ${THEME_REMIX_IDS.map(id => {
+            ${CORE_THEME_IDS.map(id => {
               const theme = THEME_REMIXES[id];
               return `<button class="refyn-theme-chip ${selectedTheme === id ? 'active' : ''}" data-theme="${id}" title="${theme.description}">
                 <span class="refyn-theme-name">${theme.name}</span>
               </button>`;
             }).join('')}
+            ${showExtendedThemes ? EXTENDED_THEME_IDS.map(id => {
+              const theme = THEME_REMIXES[id];
+              return `<button class="refyn-theme-chip refyn-theme-extended ${selectedTheme === id ? 'active' : ''}" data-theme="${id}" title="${theme.description}">
+                <span class="refyn-theme-name">${theme.name}</span>
+              </button>`;
+            }).join('') : ''}
+          </div>
+        </div>
+
+        <!-- Texture Layer Section -->
+        <div class="refyn-texture-section">
+          <div class="refyn-texture-header">
+            <span class="refyn-texture-label">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="9" y1="21" x2="9" y2="9"></line>
+              </svg>
+              Texture
+            </span>
+            <button class="refyn-texture-clear" id="refyn-texture-clear" title="Clear textures" style="${selectedTextures.length === 0 ? 'display:none' : ''}">
+              Clear
+            </button>
+          </div>
+          <div class="refyn-texture-chips" id="refyn-texture-chips">
+            ${TEXTURE_EFFECTS.slice(0, 8).map(tex => `<button class="refyn-texture-chip ${selectedTextures.includes(tex.id) ? 'active' : ''}" data-texture="${tex.id}" title="${tex.description}">
+              <span class="refyn-texture-emoji">${tex.emoji}</span>
+              <span class="refyn-texture-name">${tex.name}</span>
+            </button>`).join('')}
           </div>
         </div>
 
@@ -883,6 +919,20 @@ function setupEventListeners(): void {
 
   // Theme shuffle button
   panel.querySelector('#refyn-theme-shuffle')?.addEventListener('click', shuffleTheme);
+
+  // Theme expand button
+  panel.querySelector('#refyn-theme-expand')?.addEventListener('click', toggleExtendedThemes);
+
+  // Texture chips
+  panel.querySelectorAll('.refyn-texture-chip').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      const textureId = (e.currentTarget as HTMLElement).dataset.texture;
+      if (textureId) toggleTexture(textureId);
+    });
+  });
+
+  // Texture clear button
+  panel.querySelector('#refyn-texture-clear')?.addEventListener('click', clearTextures);
 
   // Refresh suggestions button
   panel.querySelector('#refyn-refresh-suggestions')?.addEventListener('click', () => {
@@ -1353,13 +1403,34 @@ function restorePosition(): void {
 
     // Restore selected theme
     const savedTheme = localStorage.getItem('refyn-selected-theme') as ThemeRemixId;
-    if (savedTheme && THEME_REMIX_IDS.includes(savedTheme as Exclude<ThemeRemixId, null>)) {
+    if (savedTheme && [...CORE_THEME_IDS, ...EXTENDED_THEME_IDS].includes(savedTheme as Exclude<ThemeRemixId, null>)) {
       selectedTheme = savedTheme;
       setTimeout(() => {
         panel?.querySelectorAll('.refyn-theme-chip').forEach(chip => {
           chip.classList.toggle('active', (chip as HTMLElement).dataset.theme === savedTheme);
         });
       }, 50);
+    }
+
+    // Restore extended themes preference
+    const extendedPref = localStorage.getItem('refyn-extended-themes');
+    if (extendedPref === 'true') {
+      showExtendedThemes = true;
+      setTimeout(() => updatePanelContent(), 50);
+    }
+
+    // Restore selected textures
+    const savedTextures = localStorage.getItem('refyn-selected-textures');
+    if (savedTextures) {
+      try {
+        const parsed = JSON.parse(savedTextures);
+        if (Array.isArray(parsed)) {
+          selectedTextures = parsed.filter(id => TEXTURE_EFFECTS.some(t => t.id === id));
+          setTimeout(() => updateTextureUI(), 50);
+        }
+      } catch {
+        // Invalid JSON, ignore
+      }
     }
   } catch {
     // Use default position
@@ -1518,8 +1589,9 @@ function setTheme(themeId: ThemeRemixId): void {
 }
 
 function shuffleTheme(): void {
-  // Pick a random theme different from the current one
-  const availableThemes = THEME_REMIX_IDS.filter(id => id !== selectedTheme);
+  // Pick a random theme different from the current one, preferring core themes
+  const themePool = showExtendedThemes ? [...CORE_THEME_IDS, ...EXTENDED_THEME_IDS] : CORE_THEME_IDS;
+  const availableThemes = themePool.filter(id => id !== selectedTheme);
   const randomIndex = Math.floor(Math.random() * availableThemes.length);
   const randomTheme = availableThemes[randomIndex];
 
@@ -1529,6 +1601,103 @@ function shuffleTheme(): void {
   const shuffleBtn = panel?.querySelector('#refyn-theme-shuffle');
   shuffleBtn?.classList.add('refyn-shuffling');
   setTimeout(() => shuffleBtn?.classList.remove('refyn-shuffling'), 500);
+}
+
+function toggleExtendedThemes(): void {
+  showExtendedThemes = !showExtendedThemes;
+  localStorage.setItem('refyn-extended-themes', String(showExtendedThemes));
+  updatePanelContent();
+  showToast(showExtendedThemes ? 'Showing all themes' : 'Showing core themes');
+}
+
+function toggleTexture(textureId: string): void {
+  const idx = selectedTextures.indexOf(textureId);
+  if (idx > -1) {
+    selectedTextures.splice(idx, 1);
+  } else {
+    // Allow up to 2 textures
+    if (selectedTextures.length >= 2) {
+      selectedTextures.shift(); // Remove oldest
+    }
+    selectedTextures.push(textureId);
+  }
+  localStorage.setItem('refyn-selected-textures', JSON.stringify(selectedTextures));
+  updateTextureUI();
+}
+
+function clearTextures(): void {
+  selectedTextures = [];
+  localStorage.removeItem('refyn-selected-textures');
+  updateTextureUI();
+  showToast('Textures cleared');
+}
+
+function updateTextureUI(): void {
+  if (!panel) return;
+
+  // Update chip active states
+  panel.querySelectorAll('.refyn-texture-chip').forEach(chip => {
+    const textureId = (chip as HTMLElement).dataset.texture;
+    chip.classList.toggle('active', textureId ? selectedTextures.includes(textureId) : false);
+  });
+
+  // Update clear button visibility
+  const clearBtn = panel.querySelector('#refyn-texture-clear') as HTMLElement;
+  if (clearBtn) {
+    clearBtn.style.display = selectedTextures.length > 0 ? '' : 'none';
+  }
+}
+
+function getTexturePromptModifier(): string {
+  if (selectedTextures.length === 0) return '';
+
+  const modifiers = selectedTextures.map(id => {
+    const tex = TEXTURE_EFFECTS.find(t => t.id === id);
+    return tex?.promptModifier || '';
+  }).filter(Boolean);
+
+  return modifiers.length > 0 ? ', ' + modifiers.join(', ') : '';
+}
+
+function updatePanelContent(): void {
+  if (!panel) return;
+
+  // Update theme chips section
+  const themeChipsContainer = panel.querySelector('#refyn-theme-chips');
+  if (themeChipsContainer) {
+    let themeHTML = CORE_THEME_IDS.map(id => {
+      const theme = THEME_REMIXES[id];
+      return `<button class="refyn-theme-chip ${selectedTheme === id ? 'active' : ''}" data-theme="${id}" title="${theme.description}">
+        <span class="refyn-theme-name">${theme.name}</span>
+      </button>`;
+    }).join('');
+
+    if (showExtendedThemes) {
+      themeHTML += EXTENDED_THEME_IDS.map(id => {
+        const theme = THEME_REMIXES[id];
+        return `<button class="refyn-theme-chip refyn-theme-extended ${selectedTheme === id ? 'active' : ''}" data-theme="${id}" title="${theme.description}">
+          <span class="refyn-theme-name">${theme.name}</span>
+        </button>`;
+      }).join('');
+    }
+
+    themeChipsContainer.innerHTML = themeHTML;
+
+    // Re-attach click handlers
+    themeChipsContainer.querySelectorAll('.refyn-theme-chip').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        const themeId = (e.currentTarget as HTMLElement).dataset.theme as ThemeRemixId;
+        setTheme(themeId === selectedTheme ? null : themeId);
+      });
+    });
+  }
+
+  // Update expand button
+  const expandBtn = panel.querySelector('#refyn-theme-expand');
+  if (expandBtn) {
+    expandBtn.textContent = showExtendedThemes ? '−' : '+';
+    expandBtn.setAttribute('title', showExtendedThemes ? 'Show less' : 'Show more themes');
+  }
 }
 
 async function handleFeedback(type: 'like' | 'dislike' | 'regenerate'): Promise<void> {
@@ -1615,12 +1784,16 @@ async function refinePrompt(): Promise<void> {
   // Combine both contexts
   const combinedContext = preferenceContext + smartContext;
 
+  // Get texture modifier if any textures selected
+  const textureModifier = getTexturePromptModifier();
+
   console.log('[Refyn Panel] Sending to background:', {
     platform: currentPlatform,
     mode: selectedMode,
     presetId: selectedPreset,
     themeId: selectedTheme,
     hasPreferences: !!combinedContext,
+    hasTextures: selectedTextures.length > 0,
     promptLength: prompt.length
   });
   setLoading(true);
@@ -1640,6 +1813,7 @@ async function refinePrompt(): Promise<void> {
         presetId: selectedPreset,
         themeId: selectedTheme,
         preferenceContext: combinedContext,
+        textureModifier,
       },
     });
 

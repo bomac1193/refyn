@@ -4024,6 +4024,141 @@
   white-space: nowrap;
 }
 
+.refyn-theme-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.refyn-theme-expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 5px;
+  background: rgba(168, 85, 247, 0.1);
+  color: #A855F7;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.refyn-theme-expand:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+.refyn-theme-chip.refyn-theme-extended {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+.refyn-theme-chip.refyn-theme-extended:hover {
+  opacity: 1;
+}
+
+/* =====================================================
+   TEXTURE LAYER SECTION
+   ===================================================== */
+
+.refyn-texture-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 8px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, rgba(239, 68, 68, 0.05) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.15);
+  border-radius: 8px;
+  margin-top: 2px;
+}
+
+.refyn-texture-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.refyn-texture-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #FBBF24;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.refyn-texture-label svg {
+  opacity: 0.8;
+  width: 10px;
+  height: 10px;
+}
+
+.refyn-texture-clear {
+  font-size: 8px;
+  color: #71717A;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.refyn-texture-clear:hover {
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.refyn-texture-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.refyn-texture-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(26, 26, 30, 0.8);
+  color: #71717A;
+  font-size: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-texture-chip:hover {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.15);
+  color: #FEF3C7;
+}
+
+.refyn-texture-chip.active {
+  border-color: rgba(251, 191, 36, 0.8);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(239, 68, 68, 0.2) 100%);
+  color: #FFFFFF;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+}
+
+.refyn-texture-emoji {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.refyn-texture-name {
+  font-size: 7px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
 /* =====================================================
    HOVER-TO-SAVE BUTTON
    ===================================================== */

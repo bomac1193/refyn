@@ -79,6 +79,7 @@ interface OptimizeMessage {
     presetId?: string | null;
     preferenceContext?: string;
     themeId?: string | null;
+    textureModifier?: string;
   };
 }
 
@@ -332,8 +333,8 @@ async function handleMessage(message: Message): Promise<unknown> {
   switch (message.type) {
     // Prompt optimization
     case 'OPTIMIZE_PROMPT': {
-      const { prompt, platform, mode, chaosIntensity, variationIntensity, previousRefinedPrompt, tasteProfile, presetId, preferenceContext, themeId } = message.payload;
-      console.log('[Refyn Background] Optimizing prompt for platform:', platform, 'mode:', mode, 'variation:', variationIntensity);
+      const { prompt, platform, mode, chaosIntensity, variationIntensity, previousRefinedPrompt, tasteProfile, presetId, preferenceContext, themeId, textureModifier } = message.payload;
+      console.log('[Refyn Background] Optimizing prompt for platform:', platform, 'mode:', mode, 'variation:', variationIntensity, 'textures:', textureModifier ? 'yes' : 'no');
 
       // Build preference context from deep preferences if not provided
       let finalPreferenceContext = preferenceContext;
@@ -369,7 +370,7 @@ async function handleMessage(message: Message): Promise<unknown> {
         }
       }
 
-      const result = await optimizePrompt(prompt, platform, mode, tasteProfile, presetId, finalPreferenceContext, chaosIntensity, themeId as any, variationIntensity, previousRefinedPrompt);
+      const result = await optimizePrompt(prompt, platform, mode, tasteProfile, presetId, finalPreferenceContext, chaosIntensity, themeId as any, variationIntensity, previousRefinedPrompt, textureModifier);
 
       if (result.success && result.optimizedPrompt) {
         // Add to history

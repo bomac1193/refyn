@@ -487,7 +487,8 @@ export function buildOptimizationPrompt(
   chaosIntensity?: number,
   themeId?: ThemeRemixId,
   variationIntensity?: number,
-  previousRefinedPrompt?: string | null
+  previousRefinedPrompt?: string | null,
+  textureModifier?: string
 ): { system: string; user: string } {
   let systemPrompt = getSystemPrompt(platform);
 
@@ -635,7 +636,29 @@ The user explicitly wants VARIATION. Give them something they've NEVER seen befo
     systemPrompt += getArtistDiscoveryPrompt(effectiveVariation);
   }
 
-  const userPrompt = `${modeInstruction}${themeNote}${variationNote}
+  // TEXTURE LAYER INSTRUCTION
+  // If texture effects are selected, instruct the AI to incorporate them
+  let textureInstruction = '';
+  if (textureModifier && textureModifier.trim()) {
+    systemPrompt += `
+
+████ TEXTURE LAYER EFFECT ████
+The user has selected texture/damage effects to apply to the image.
+You MUST incorporate these texture descriptions naturally into the final prompt.
+Add them as visual qualities that affect the ENTIRE image aesthetic.
+
+Texture effects to incorporate:
+${textureModifier}
+
+Integrate these ORGANICALLY - don't just append them, weave them into the visual description.
+For example, instead of "portrait, with burnt edges", write "portrait emerging from scorched darkness, edges blackened and curling like forgotten photographs".
+████████████████████████████████`;
+    textureInstruction = `
+[TEXTURE: Apply these effects: ${textureModifier.replace(', with ', '').replace(', ', ' + ')}]
+`;
+  }
+
+  const userPrompt = `${modeInstruction}${themeNote}${variationNote}${textureInstruction}
 
 Original prompt:
 ${prompt}
