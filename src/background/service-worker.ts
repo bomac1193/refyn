@@ -266,6 +266,10 @@ interface ApplyTasteDimensionsMessage {
   payload: { dimensionIds: string[]; mode: 'merge' | 'replace' };
 }
 
+interface GetPreferencesMessage {
+  type: 'GET_PREFERENCES';
+}
+
 type Message =
   | OptimizeMessage
   | ApiKeyMessage
@@ -297,7 +301,8 @@ type Message =
   | ImportTastePackMessage
   | GetTasteLayersMessage
   | GetTasteDimensionsMessage
-  | ApplyTasteDimensionsMessage;
+  | ApplyTasteDimensionsMessage
+  | GetPreferencesMessage;
 
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener(
@@ -766,6 +771,16 @@ async function handleMessage(message: Message): Promise<unknown> {
       try {
         const result = await applyDimensions(dimensionIds, mode);
         return result;
+      } catch (error) {
+        return { success: false, error: String(error) };
+      }
+    }
+
+    // Get Deep Preferences (for taste learning progress)
+    case 'GET_PREFERENCES': {
+      try {
+        const prefs = await getDeepPreferences();
+        return { success: true, data: prefs };
       } catch (error) {
         return { success: false, error: String(error) };
       }

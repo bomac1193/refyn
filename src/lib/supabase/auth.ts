@@ -96,6 +96,20 @@ export async function signUp(
     if (data.user) {
       // Initialize user profile in database
       await initializeUserProfile(data.user.id);
+
+      // Check if email confirmation is required
+      // Supabase sets identities to empty array when email is not confirmed
+      const needsConfirmation = data.user.identities?.length === 0 || !data.user.email_confirmed_at;
+
+      if (needsConfirmation) {
+        console.log('[Refyn Auth] User created, awaiting email confirmation:', email);
+        return {
+          success: true,
+          user: data.user,
+          error: 'Account created! Please check your email to confirm your account before signing in.'
+        };
+      }
+
       return { success: true, user: data.user };
     }
 
@@ -122,7 +136,14 @@ export async function signIn(
 
     if (error) {
       console.error('[Refyn Auth] Sign in error:', error);
-      return { success: false, error: error.message };
+      // Provide helpful messages for common errors
+      let errorMessage = error.message;
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        errorMessage = 'Please check your email and click the confirmation link, then try again.';
+      } else if (error.message.toLowerCase().includes('invalid login credentials')) {
+        errorMessage = 'Invalid email or password. Please try again.';
+      }
+      return { success: false, error: errorMessage };
     }
 
     if (data.user && data.session) {

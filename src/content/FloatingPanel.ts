@@ -216,9 +216,10 @@ async function loadSmartSuggestions(): Promise<void> {
   if (!suggestionsContainer) return;
 
   try {
+    // Get more keywords for better suggestions
     const [suggested, avoid] = await Promise.all([
-      getSuggestedKeywords(currentPlatform, 5),
-      getKeywordsToAvoid(currentPlatform, 3),
+      getSuggestedKeywords(currentPlatform, 10),
+      getKeywordsToAvoid(currentPlatform, 8),
     ]);
 
     if (suggested.length === 0 && avoid.length === 0) {
@@ -231,29 +232,41 @@ async function loadSmartSuggestions(): Promise<void> {
 
     let html = '';
 
-    // Suggested keywords (to add)
-    for (const s of suggested) {
-      html += `
-        <button class="refyn-suggestion-chip" data-keyword="${s.keyword}" title="Click to add to prompt">
-          <span class="refyn-suggestion-add">+</span>
-          ${s.keyword}
-        </button>
-      `;
+    // Keywords You Like section
+    if (suggested.length > 0) {
+      html += `<div class="refyn-suggestion-section">
+        <span class="refyn-suggestion-section-label refyn-like-label">Keywords You Like</span>
+        <div class="refyn-suggestion-chips">`;
+      for (const s of suggested) {
+        html += `
+          <button class="refyn-suggestion-chip refyn-like" data-keyword="${s.keyword}" title="Score: ${s.score.toFixed(1)} | Click to add">
+            <span class="refyn-suggestion-add">+</span>
+            ${s.keyword}
+          </button>
+        `;
+      }
+      html += `</div></div>`;
     }
 
-    // Keywords to avoid
-    for (const a of avoid) {
-      html += `
-        <button class="refyn-suggestion-chip refyn-avoid" data-avoid="${a.keyword}" title="You disliked outputs with this">
-          <span class="refyn-suggestion-remove">-</span>
-          ${a.keyword}
-        </button>
-      `;
+    // Keywords to Avoid section
+    if (avoid.length > 0) {
+      html += `<div class="refyn-suggestion-section">
+        <span class="refyn-suggestion-section-label refyn-avoid-label">Keywords to Avoid</span>
+        <div class="refyn-suggestion-chips">`;
+      for (const a of avoid) {
+        html += `
+          <button class="refyn-suggestion-chip refyn-avoid" data-avoid="${a.keyword}" title="Score: ${a.score.toFixed(1)} | System avoids this">
+            <span class="refyn-suggestion-remove">-</span>
+            ${a.keyword}
+          </button>
+        `;
+      }
+      html += `</div></div>`;
     }
 
     suggestionsContainer.innerHTML = html;
 
-    // Add click handlers
+    // Add click handlers for liked keywords
     suggestionsContainer.querySelectorAll('.refyn-suggestion-chip[data-keyword]').forEach(chip => {
       chip.addEventListener('click', () => {
         const keyword = (chip as HTMLElement).dataset.keyword;
@@ -641,6 +654,43 @@ function generatePanelHTML(): string {
             </div>
           </div>
 
+          <!-- Taste Learning Progress -->
+          <div class="refyn-profile-section refyn-taste-progress-section">
+            <div class="refyn-profile-header">
+              <span>Taste Learning</span>
+            </div>
+            <div class="refyn-taste-progress" id="refyn-taste-progress">
+              <!-- Populated dynamically by renderTasteProgress() -->
+              <div class="refyn-progress-loading">Loading...</div>
+            </div>
+          </div>
+
+          <!-- Midjourney History Import -->
+          ${currentPlatform === 'midjourney' ? `
+          <div class="refyn-profile-section refyn-import-section">
+            <div class="refyn-profile-header">
+              <span>Import History</span>
+            </div>
+            <div class="refyn-import-content">
+              <p class="refyn-import-desc">Scan your Midjourney gallery to import past upscales and train your taste profile instantly.</p>
+              <button class="refyn-import-btn" id="refyn-import-mj-history">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Scan Gallery & Import
+              </button>
+              <div class="refyn-import-progress" id="refyn-import-progress" style="display: none;">
+                <div class="refyn-import-progress-bar">
+                  <div class="refyn-import-progress-fill" id="refyn-import-progress-fill"></div>
+                </div>
+                <span class="refyn-import-status" id="refyn-import-status">Scanning...</span>
+              </div>
+            </div>
+          </div>
+          ` : ''}
+
           <!-- Taste Profile Section -->
           <div class="refyn-profile-section">
             <div class="refyn-profile-header">
@@ -834,6 +884,9 @@ function setupEventListeners(): void {
   });
   panel.querySelector('#refyn-import-file')?.addEventListener('change', handleImportTaste);
   panel.querySelector('#refyn-vision-analysis')?.addEventListener('change', handleVisionToggle);
+
+  // Midjourney history import
+  panel.querySelector('#refyn-import-mj-history')?.addEventListener('click', handleMidjourneyHistoryImport);
 
   // Check auth state on init
   checkAuthState();
@@ -2027,9 +2080,97 @@ async function loadProfile(): Promise<void> {
       const refinedCount = panel?.querySelector('#refyn-stat-refined');
       if (refinedCount) refinedCount.textContent = historyResponse.data.length.toString();
     }
+
+    // Load preferences for taste learning progress
+    const prefsResponse = await chrome.runtime.sendMessage({ type: 'GET_PREFERENCES' });
+    if (prefsResponse?.success && prefsResponse.data) {
+      renderTasteProgress(prefsResponse.data);
+    }
   } catch (error) {
     console.error('[Refyn] Failed to load profile:', error);
   }
+}
+
+/**
+ * Render the taste learning progress bar
+ */
+function renderTasteProgress(prefs: { stats?: { totalLikes?: number; totalDislikes?: number; totalDeletes?: number } }): void {
+  const progressContainer = panel?.querySelector('#refyn-taste-progress');
+  if (!progressContainer) return;
+
+  const totalLikes = prefs.stats?.totalLikes || 0;
+  const totalDislikes = (prefs.stats?.totalDislikes || 0) + (prefs.stats?.totalDeletes || 0);
+  const totalFeedback = totalLikes + totalDislikes;
+
+  // Milestones
+  const targetBasic = 20;
+  const targetGood = 50;
+  const targetExcellent = 100;
+  const maxTarget = 150;
+
+  // Determine level
+  let level = 'Getting Started';
+  let levelColor = '#71717a'; // zinc-500
+  let progressColor = '#71717a';
+  let nextMilestone = targetBasic;
+
+  if (totalFeedback >= targetExcellent) {
+    level = 'Excellent';
+    levelColor = '#22c55e'; // green-500
+    progressColor = '#22c55e';
+    nextMilestone = maxTarget;
+  } else if (totalFeedback >= targetGood) {
+    level = 'Good Understanding';
+    levelColor = '#3b82f6'; // blue-500
+    progressColor = '#3b82f6';
+    nextMilestone = targetExcellent;
+  } else if (totalFeedback >= targetBasic) {
+    level = 'Learning';
+    levelColor = '#f59e0b'; // amber-500
+    progressColor = '#f59e0b';
+    nextMilestone = targetGood;
+  }
+
+  const progressPercent = Math.min(100, (totalFeedback / nextMilestone) * 100);
+
+  // Encouraging text
+  let encourageText = '';
+  if (totalFeedback < targetBasic) {
+    encourageText = `Rate ${targetBasic - totalFeedback} more outputs to unlock personalized suggestions`;
+  } else if (totalFeedback < targetGood) {
+    encourageText = `${targetGood - totalFeedback} more ratings to improve taste accuracy`;
+  } else if (totalFeedback < targetExcellent) {
+    encourageText = `${targetExcellent - totalFeedback} more for excellent recommendations`;
+  } else {
+    encourageText = 'Your taste profile is highly trained!';
+  }
+
+  progressContainer.innerHTML = `
+    <div class="refyn-progress-header">
+      <span class="refyn-progress-level" style="color: ${levelColor}">${level}</span>
+      <span class="refyn-progress-count">${totalFeedback}/${nextMilestone}</span>
+    </div>
+    <div class="refyn-progress-bar-container">
+      <div class="refyn-progress-bar" style="width: ${progressPercent}%; background: ${progressColor}"></div>
+      <div class="refyn-progress-markers">
+        <div class="refyn-progress-marker" style="left: ${(targetBasic / maxTarget) * 100}%" title="Learning: ${targetBasic}"></div>
+        <div class="refyn-progress-marker" style="left: ${(targetGood / maxTarget) * 100}%" title="Good: ${targetGood}"></div>
+        <div class="refyn-progress-marker" style="left: ${(targetExcellent / maxTarget) * 100}%" title="Excellent: ${targetExcellent}"></div>
+      </div>
+    </div>
+    <div class="refyn-progress-stats">
+      <div class="refyn-progress-stat refyn-stat-positive">
+        <span class="refyn-stat-value">${totalLikes}</span>
+        <span class="refyn-stat-label">Liked</span>
+      </div>
+      <div class="refyn-progress-divider"></div>
+      <div class="refyn-progress-stat refyn-stat-negative">
+        <span class="refyn-stat-value">${totalDislikes}</span>
+        <span class="refyn-stat-label">Disliked</span>
+      </div>
+    </div>
+    <div class="refyn-progress-encourage">${encourageText}</div>
+  `;
 }
 
 function renderProfile(): void {
@@ -2710,6 +2851,18 @@ function showTrashFeedbackPopup(_x: number, _y: number): void {
           </svg>
         </button>
       </div>
+      <div class="refyn-feedback-stars" data-rating="0">
+        <span class="refyn-feedback-stars-label">How bad?</span>
+        <div class="refyn-feedback-stars-row">
+          ${[1,2,3,4,5].map(i => `
+            <button class="refyn-feedback-star" data-star="${i}" title="${i} star${i > 1 ? 's' : ''}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+            </button>
+          `).join('')}
+        </div>
+      </div>
       <div class="refyn-trash-feedback-options">
         ${TRASH_FEEDBACK_PRESETS.map(preset => `
           <button class="refyn-trash-feedback-btn" data-reason="${preset.id}">
@@ -2759,12 +2912,45 @@ function showTrashFeedbackPopup(_x: number, _y: number): void {
 
   trashFeedbackElement.style.cssText = positionStyle;
 
-  // Add event listeners
+  // Track selected reason (don't submit until both star + reason are set)
+  let selectedTrashReason: string | null = null;
+
+  // Helper to check if both selections are made and auto-submit
+  const checkAndSubmitTrash = () => {
+    const starsContainer = trashFeedbackElement?.querySelector('.refyn-feedback-stars');
+    const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
+
+    if (starRating > 0 && selectedTrashReason) {
+      // Both selected - show brief confirmation then submit
+      const inner = trashFeedbackElement?.querySelector('.refyn-trash-feedback-inner');
+      if (inner) {
+        inner.classList.add('refyn-feedback-submitting');
+      }
+      setTimeout(() => {
+        if (selectedTrashReason === 'custom') {
+          const input = trashFeedbackElement?.querySelector('.refyn-trash-feedback-input') as HTMLInputElement;
+          submitTrashFeedback('custom', input?.value?.trim() || '');
+        } else {
+          submitTrashFeedback(selectedTrashReason || 'unknown');
+        }
+      }, 400);
+    }
+  };
+
+  // Add event listeners - reason buttons just select, don't submit
   trashFeedbackElement.querySelectorAll('.refyn-trash-feedback-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const reason = (btn as HTMLElement).dataset.reason;
+
+      // Clear previous selection
+      trashFeedbackElement?.querySelectorAll('.refyn-trash-feedback-btn').forEach(b => {
+        b.classList.remove('active');
+      });
+
+      // Set new selection
+      btn.classList.add('active');
 
       if (reason === 'other') {
         // Show custom input
@@ -2774,11 +2960,11 @@ function showTrashFeedbackPopup(_x: number, _y: number): void {
           const input = customSection.querySelector('input');
           input?.focus();
         }
-        // Highlight the "Other" button
-        btn.classList.add('active');
+        selectedTrashReason = 'custom';
       } else {
-        // Submit preset feedback
-        submitTrashFeedback(reason || 'unknown');
+        selectedTrashReason = reason || null;
+        // Check if we can submit (both star + reason selected)
+        checkAndSubmitTrash();
       }
     });
   });
@@ -2788,23 +2974,92 @@ function showTrashFeedbackPopup(_x: number, _y: number): void {
     hideTrashFeedbackPopup();
   });
 
-  // Skip button
+  // Skip button - allows skipping without both selections
   trashFeedbackElement.querySelector('[data-action="skip"]')?.addEventListener('click', () => {
-    submitTrashFeedback('skipped');
+    const starsContainer = trashFeedbackElement?.querySelector('.refyn-feedback-stars');
+    const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
+    if (starRating > 0 || selectedTrashReason) {
+      submitTrashFeedback(selectedTrashReason || 'skipped');
+    } else {
+      flashLearningIndicator('Noted');
+      hideTrashFeedbackPopup();
+    }
   });
 
-  // Custom submit
+  // Custom input - track typing
+  const trashCustomInput = trashFeedbackElement.querySelector('.refyn-trash-feedback-input') as HTMLInputElement;
+  trashCustomInput?.addEventListener('input', () => {
+    if (trashCustomInput.value?.trim()) {
+      selectedTrashReason = 'custom';
+    }
+  });
+
+  // Custom submit button
   trashFeedbackElement.querySelector('[data-action="submit-custom"]')?.addEventListener('click', () => {
     const input = trashFeedbackElement?.querySelector('.refyn-trash-feedback-input') as HTMLInputElement;
-    submitTrashFeedback('custom', input?.value || '');
+    if (input?.value?.trim()) {
+      selectedTrashReason = 'custom';
+      checkAndSubmitTrash();
+      // If no stars selected, prompt user
+      const starsContainer = trashFeedbackElement?.querySelector('.refyn-feedback-stars');
+      const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
+      if (starRating === 0) {
+        starsContainer?.classList.add('refyn-feedback-stars-highlight');
+        setTimeout(() => starsContainer?.classList.remove('refyn-feedback-stars-highlight'), 1000);
+      }
+    }
   });
 
   // Enter key on custom input
   trashFeedbackElement.querySelector('.refyn-trash-feedback-input')?.addEventListener('keydown', (e) => {
     if ((e as KeyboardEvent).key === 'Enter') {
       const input = e.target as HTMLInputElement;
-      submitTrashFeedback('custom', input.value || '');
+      if (input.value?.trim()) {
+        selectedTrashReason = 'custom';
+        checkAndSubmitTrash();
+      }
     }
+  });
+
+  // Star rating handlers
+  trashFeedbackElement.querySelectorAll('.refyn-feedback-star').forEach(star => {
+    star.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const rating = parseInt((star as HTMLElement).dataset.star || '0', 10);
+      const starsContainer = trashFeedbackElement?.querySelector('.refyn-feedback-stars');
+      if (starsContainer) {
+        starsContainer.setAttribute('data-rating', String(rating));
+        // Update visual state
+        trashFeedbackElement?.querySelectorAll('.refyn-feedback-star').forEach((s, i) => {
+          if (i < rating) {
+            s.classList.add('active');
+          } else {
+            s.classList.remove('active');
+          }
+        });
+      }
+      // Check if we can submit
+      checkAndSubmitTrash();
+    });
+
+    // Hover preview
+    star.addEventListener('mouseenter', () => {
+      const rating = parseInt((star as HTMLElement).dataset.star || '0', 10);
+      trashFeedbackElement?.querySelectorAll('.refyn-feedback-star').forEach((s, i) => {
+        if (i < rating) {
+          s.classList.add('hover');
+        } else {
+          s.classList.remove('hover');
+        }
+      });
+    });
+
+    star.addEventListener('mouseleave', () => {
+      trashFeedbackElement?.querySelectorAll('.refyn-feedback-star').forEach(s => {
+        s.classList.remove('hover');
+      });
+    });
   });
 
   document.body.appendChild(trashFeedbackElement);
@@ -2814,10 +3069,14 @@ function showTrashFeedbackPopup(_x: number, _y: number): void {
     trashFeedbackElement?.classList.add('refyn-trash-feedback-visible');
   });
 
-  // Auto-dismiss after 15 seconds
+  // Auto-dismiss after 20 seconds (longer since user needs to make two selections)
   trashFeedbackTimeout = setTimeout(() => {
-    hideTrashFeedbackPopup();
-  }, 15000);
+    if (selectedTrashReason) {
+      submitTrashFeedback(selectedTrashReason);
+    } else {
+      hideTrashFeedbackPopup();
+    }
+  }, 20000);
 }
 
 /**
@@ -2825,19 +3084,25 @@ function showTrashFeedbackPopup(_x: number, _y: number): void {
  */
 async function submitTrashFeedback(reason: string, customText?: string): Promise<void> {
   try {
-    // Record the feedback
+    // Get star rating
+    const starsContainer = trashFeedbackElement?.querySelector('.refyn-feedback-stars');
+    const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
+
+    // Record the feedback with star rating
     const { recordTrashFeedback } = await import('@/lib/deepLearning');
     await recordTrashFeedback(
       lastTrashedPrompt,
       currentPlatform,
       reason,
-      customText
+      customText,
+      starRating
     );
 
     // Show confirmation
-    flashLearningIndicator(`Noted: ${reason === 'skipped' ? 'Skipped' : reason.replace('-', ' ')}`);
+    const ratingInfo = starRating > 0 ? ` (${starRating}★)` : '';
+    flashLearningIndicator(`Noted: ${reason === 'skipped' ? 'Skipped' : reason.replace('-', ' ')}${ratingInfo}`);
 
-    console.log('[Refyn] Trash feedback recorded:', { reason, customText, prompt: lastTrashedPrompt.substring(0, 50) });
+    console.log('[Refyn] Trash feedback recorded:', { reason, customText, starRating, prompt: lastTrashedPrompt.substring(0, 50) });
   } catch (error) {
     console.error('[Refyn] Error recording trash feedback:', error);
   }
@@ -3254,5 +3519,377 @@ function handleVisionToggle(event: Event): void {
   const checked = (event.target as HTMLInputElement).checked;
   localStorage.setItem('refyn-vision-analysis', checked ? 'true' : 'false');
   showToast(checked ? 'Vision analysis enabled' : 'Vision analysis disabled');
+}
+
+// =====================================================
+// MIDJOURNEY HISTORY IMPORT
+// =====================================================
+
+interface MidjourneyJob {
+  prompt: string;
+  imageUrl: string;
+  isUpscaled: boolean;
+  jobId: string;
+}
+
+/**
+ * Handle Midjourney history import button click
+ */
+async function handleMidjourneyHistoryImport(): Promise<void> {
+  const btn = panel?.querySelector('#refyn-import-mj-history') as HTMLButtonElement;
+  const progressContainer = panel?.querySelector('#refyn-import-progress') as HTMLElement;
+  const progressFill = panel?.querySelector('#refyn-import-progress-fill') as HTMLElement;
+  const statusText = panel?.querySelector('#refyn-import-status') as HTMLElement;
+
+  if (!btn || !progressContainer) return;
+
+  // Check if we're on midjourney.com
+  const isMidjourneyWeb = window.location.hostname.includes('midjourney.com');
+  const isDiscord = window.location.hostname.includes('discord.com');
+
+  if (!isMidjourneyWeb && !isDiscord) {
+    showToast('Go to midjourney.com/app or Discord to import', 'error');
+    return;
+  }
+
+  // Disable button and show progress
+  btn.disabled = true;
+  btn.textContent = 'Scanning...';
+  progressContainer.style.display = 'block';
+  progressFill.style.width = '0%';
+  statusText.textContent = 'Scanning gallery...';
+
+  try {
+    let jobs: MidjourneyJob[] = [];
+
+    if (isMidjourneyWeb) {
+      jobs = await scanMidjourneyWebGallery(statusText);
+    } else if (isDiscord) {
+      jobs = await scanDiscordHistory(statusText);
+    }
+
+    if (jobs.length === 0) {
+      statusText.textContent = 'No images found on this page';
+      showToast('No Midjourney images found. Try scrolling to load more images first.', 'error');
+      resetImportUI(btn, progressContainer);
+      return;
+    }
+
+    // Filter to upscaled images, or fall back to all images if none detected as upscaled
+    let upscaledJobs = jobs.filter(j => j.isUpscaled);
+
+    if (upscaledJobs.length === 0) {
+      // No upscaled detected - ask if user wants to import all visible images
+      statusText.textContent = `Found ${jobs.length} images but none detected as upscaled. Importing all...`;
+      console.log('[Refyn] No upscaled images detected, importing all', jobs.length, 'images');
+      // Import all images since the user likely has a gallery of their favorites
+      upscaledJobs = jobs;
+    } else {
+      statusText.textContent = `Found ${upscaledJobs.length} upscaled images. Processing...`;
+    }
+
+    // Process in batches
+    const batchSize = 5;
+    let processed = 0;
+
+    for (let i = 0; i < upscaledJobs.length; i += batchSize) {
+      const batch = upscaledJobs.slice(i, i + batchSize);
+
+      await Promise.all(batch.map(async (job) => {
+        try {
+          // Record as a like
+          await chrome.runtime.sendMessage({
+            type: 'RECORD_FEEDBACK',
+            payload: {
+              prompt: job.prompt,
+              outputId: job.jobId,
+              platform: 'midjourney',
+              feedback: 'like',
+            },
+          });
+
+          // Vision analysis
+          if (job.imageUrl) {
+            await chrome.runtime.sendMessage({
+              type: 'ANALYZE_IMAGE',
+              payload: { imageUrl: job.imageUrl, platform: 'midjourney' },
+            });
+          }
+        } catch (e) {
+          console.error('[Refyn] Failed to process job:', e);
+        }
+      }));
+
+      processed += batch.length;
+      const percent = Math.round((processed / upscaledJobs.length) * 100);
+      progressFill.style.width = `${percent}%`;
+      statusText.textContent = `Processed ${processed}/${upscaledJobs.length} images...`;
+
+      // Small delay between batches to avoid rate limiting
+      if (i + batchSize < upscaledJobs.length) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+
+    statusText.textContent = `Done! Imported ${upscaledJobs.length} images`;
+    showToast(`Imported ${upscaledJobs.length} images to taste profile!`);
+
+    // Refresh profile display
+    loadProfile();
+
+  } catch (error) {
+    console.error('[Refyn] Import failed:', error);
+    statusText.textContent = 'Import failed';
+    showToast('Import failed: ' + String(error), 'error');
+  }
+
+  resetImportUI(btn, progressContainer);
+}
+
+function resetImportUI(btn: HTMLButtonElement, progressContainer: HTMLElement): void {
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      Scan Gallery & Import
+    `;
+    progressContainer.style.display = 'none';
+  }, 2000);
+}
+
+/**
+ * Scan Midjourney web gallery for upscaled images
+ */
+async function scanMidjourneyWebGallery(statusText: HTMLElement): Promise<MidjourneyJob[]> {
+  const jobs: MidjourneyJob[] = [];
+  const seenUrls = new Set<string>();
+
+  // Strategy 1: Find all images that look like Midjourney outputs
+  const allImages = document.querySelectorAll('img');
+  statusText.textContent = `Scanning ${allImages.length} images...`;
+
+  console.log('[Refyn] Starting gallery scan, found', allImages.length, 'images');
+
+  allImages.forEach((img, index) => {
+    try {
+      const src = img.src || img.getAttribute('data-src') || '';
+
+      // Skip if not a Midjourney CDN image or already seen
+      if (!src || seenUrls.has(src)) return;
+      if (!src.includes('midjourney') && !src.includes('mj-') && !src.includes('cdn.discordapp')) {
+        // Also check for common CDN patterns used by MJ
+        if (!src.includes('imagedelivery') && !src.includes('cloudflare')) return;
+      }
+
+      seenUrls.add(src);
+
+      // Find prompt by traversing up the DOM looking for text content
+      let prompt = '';
+      let element: HTMLElement | null = img as HTMLElement;
+      let depth = 0;
+      const maxDepth = 10;
+
+      while (element && depth < maxDepth && !prompt) {
+        depth++;
+        element = element.parentElement;
+        if (!element) break;
+
+        // Look for prompt in various places
+        // 1. Title attribute on any parent
+        if (element.title && element.title.length > 10) {
+          prompt = element.title;
+          break;
+        }
+
+        // 2. Data attributes that might contain prompt
+        const dataPrompt = element.getAttribute('data-prompt') ||
+                          element.getAttribute('data-description') ||
+                          element.getAttribute('aria-label');
+        if (dataPrompt && dataPrompt.length > 10) {
+          prompt = dataPrompt;
+          break;
+        }
+
+        // 3. Look for a sibling or child element with prompt text
+        const promptEl = element.querySelector('[class*="prompt" i], [class*="description" i], [class*="caption" i], [class*="text" i]');
+        if (promptEl?.textContent && promptEl.textContent.length > 10 && promptEl.textContent.length < 2000) {
+          prompt = promptEl.textContent.trim();
+          break;
+        }
+
+        // 4. Check for text in the immediate area (but not too much)
+        const textContent = element.textContent?.trim() || '';
+        if (textContent.length > 15 && textContent.length < 500) {
+          // Make sure it's not just UI text
+          if (!textContent.match(/^(loading|error|click|download|share|copy|save|delete|edit)/i)) {
+            prompt = textContent;
+            break;
+          }
+        }
+      }
+
+      // Also try alt text
+      if (!prompt && img.alt && img.alt.length > 10) {
+        prompt = img.alt;
+      }
+
+      // Determine if upscaled
+      const isUpscaled = detectIfUpscaledFromImage(img, src);
+
+      // Only add if we have a prompt or it's definitely an upscaled MJ image
+      if (prompt || isUpscaled) {
+        jobs.push({
+          prompt: prompt || '[No prompt found]',
+          imageUrl: src,
+          isUpscaled,
+          jobId: `mj-import-${index}-${Date.now()}`,
+        });
+        console.log('[Refyn] Found image:', { prompt: prompt?.substring(0, 50), isUpscaled, src: src.substring(0, 80) });
+      }
+    } catch (e) {
+      console.error('[Refyn] Failed to parse image:', e);
+    }
+  });
+
+  // Strategy 2: Look for grid items / cards that might contain images
+  const gridItems = document.querySelectorAll('[class*="grid"] > *, [class*="gallery"] > *, [class*="masonry"] > *, [role="listitem"], [role="gridcell"]');
+
+  gridItems.forEach((item, index) => {
+    try {
+      const img = item.querySelector('img') as HTMLImageElement;
+      if (!img?.src || seenUrls.has(img.src)) return;
+
+      seenUrls.add(img.src);
+
+      // Get prompt from the item
+      const prompt = item.getAttribute('title') ||
+                    item.getAttribute('aria-label') ||
+                    item.querySelector('[class*="prompt" i], [class*="text" i]')?.textContent?.trim() || '';
+
+      if (prompt.length > 10) {
+        const isUpscaled = detectIfUpscaledFromImage(img, img.src);
+        jobs.push({
+          prompt,
+          imageUrl: img.src,
+          isUpscaled,
+          jobId: `mj-grid-${index}-${Date.now()}`,
+        });
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+  });
+
+  console.log('[Refyn] Gallery scan complete. Found', jobs.length, 'potential images,', jobs.filter(j => j.isUpscaled).length, 'upscaled');
+  statusText.textContent = `Found ${jobs.length} images (${jobs.filter(j => j.isUpscaled).length} upscaled)`;
+
+  return jobs;
+}
+
+/**
+ * Detect if an image is upscaled based on image properties and URL
+ */
+function detectIfUpscaledFromImage(img: HTMLImageElement, src: string): boolean {
+  // Check URL patterns
+  const urlLower = src.toLowerCase();
+  if (urlLower.includes('upscale') || urlLower.includes('_u_') || urlLower.includes('-u-') || urlLower.includes('/u/')) {
+    return true;
+  }
+
+  // Check for high resolution indicators in URL
+  if (urlLower.includes('_2048') || urlLower.includes('_1024') || urlLower.includes('high') || urlLower.includes('full')) {
+    return true;
+  }
+
+  // Check actual image dimensions if loaded
+  if (img.naturalWidth > 1000 && img.naturalHeight > 1000) {
+    return true;
+  }
+
+  // Check if displayed large (suggests it's a detail/upscaled view)
+  const rect = img.getBoundingClientRect();
+  if (rect.width > 500 && rect.height > 500) {
+    return true;
+  }
+
+  // Check for single image in container (upscales are single, grids are 4)
+  const parent = img.parentElement;
+  if (parent) {
+    const siblingImgs = parent.querySelectorAll('img');
+    if (siblingImgs.length === 1) {
+      // Single image - could be upscaled
+      // Check grandparent for more context
+      const grandparent = parent.parentElement;
+      if (grandparent) {
+        const nearbyImgs = grandparent.querySelectorAll('img');
+        if (nearbyImgs.length === 1) {
+          return true; // Definitely a single image view
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Scan Discord history for Midjourney upscales
+ */
+async function scanDiscordHistory(statusText: HTMLElement): Promise<MidjourneyJob[]> {
+  const jobs: MidjourneyJob[] = [];
+
+  // Find all Midjourney bot messages
+  const messages = document.querySelectorAll('[class*="message"]');
+
+  statusText.textContent = `Scanning ${messages.length} messages...`;
+
+  messages.forEach((msg, index) => {
+    try {
+      // Check if this is a Midjourney bot message
+      const authorName = msg.querySelector('[class*="username"], [class*="author"]')?.textContent || '';
+      if (!authorName.toLowerCase().includes('midjourney')) return;
+
+      // Find images in this message
+      const images = msg.querySelectorAll('img[src*="cdn.discordapp"], img[src*="cdn.midjourney"]');
+      if (images.length === 0) return;
+
+      // Find the prompt - usually in bold at the start of the message
+      const messageContent = msg.querySelector('[class*="messageContent"], [class*="markup"]');
+      const messageText = messageContent?.textContent || '';
+
+      // Extract prompt from **prompt** format
+      const promptMatch = messageText.match(/\*\*(.+?)\*\*/);
+      const prompt = promptMatch ? promptMatch[1] : '';
+
+      if (!prompt || prompt.length < 5) return;
+
+      // Check if this is an upscaled image
+      // Upscaled images typically:
+      // - Have only 1 image (not 4-grid)
+      // - Message contains "Upscaled" or "Image #"
+      const isUpscaled = images.length === 1 &&
+        (messageText.includes('Upscaled') ||
+         messageText.includes('Image #') ||
+         messageText.match(/U[1-4]\)/));
+
+      if (isUpscaled) {
+        const img = images[0] as HTMLImageElement;
+        jobs.push({
+          prompt,
+          imageUrl: img.src,
+          isUpscaled: true,
+          jobId: `discord-import-${index}-${Date.now()}`,
+        });
+      }
+    } catch (e) {
+      console.error('[Refyn] Failed to parse Discord message:', e);
+    }
+  });
+
+  return jobs;
 }
 

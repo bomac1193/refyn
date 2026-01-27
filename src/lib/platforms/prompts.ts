@@ -608,6 +608,36 @@ Create a dramatically different interpretation. Change: colors, mood, style, com
     }
   }
 
+  // Universal anti-stock-phrases warning - applies to ALL prompts
+  // This is placed at the END of the system prompt for maximum effect
+  const antiStockWarning = `
+
+████████████████████████████████████████████████████████████████
+█  CREATIVITY MANDATE - AVOID GENERIC STOCK PHRASES  █
+████████████████████████████████████████████████████████████████
+
+NEVER USE these overused, generic phrases:
+✗ "trending on ArtStation" / "ArtStation HQ" / "DeviantArt"
+✗ "rendered in Unreal Engine 5" / "Unreal Engine" / "Unity"
+✗ "octane render" / "V-Ray" / "Cinema 4D" / "Blender render"
+✗ "8K" / "4K UHD" / "hyper-realistic" / "photorealistic"
+✗ "highly detailed" / "ultra detailed" / "intricate details"
+✗ "masterpiece" / "best quality" / "award-winning"
+✗ "professional photography" / "DSLR" / "Canon" / "Nikon"
+
+INSTEAD, be SPECIFIC and CONTEXTUAL. Use:
+- Software WITH context: "Maya on a M3 Mac having a seizure", "Houdini fluid sim gone wrong"
+- Real cultural references: "banned from a gallery show", "went viral on weird Twitter"
+- Emotional specificity: "the aesthetic of 3am doom scrolling", "looks like a recovered memory"
+- Anti-commercial: "too unsettling for stock photos", "would get flagged by content moderation"
+- Unique descriptors: invent phrases that feel FRESH, not recycled
+
+The user explicitly wants VARIATION. Give them something they've NEVER seen before.
+████████████████████████████████████████████████████████████████
+`;
+
+  systemPrompt += antiStockWarning;
+
   const userPrompt = `${modeInstruction}${themeNote}${variationNote}
 
 Original prompt:
@@ -620,8 +650,25 @@ ${themeReminder}Optimized prompt:`;
 
 /**
  * Build variation context instructions based on intensity
+ *
+ * CRITICAL: This function instructs the AI to generate genuinely UNIQUE variations,
+ * not recycled stock phrases like "trending on ArtStation" or "rendered in Unreal Engine 5"
  */
 function buildVariationContext(intensity: number): string {
+  const antiRepetitionWarning = `
+
+⚠️ BANNED PHRASES - NEVER USE THESE:
+- "trending on ArtStation" / "featured on ArtStation" / "ArtStation HQ"
+- "rendered in Unreal Engine 5" / "Unreal Engine" / "Unity render"
+- "8K resolution" / "4K UHD" / "hyper-realistic"
+- "octane render" / "V-Ray" / "Cinema 4D"
+- "award-winning" / "masterpiece" / "best quality"
+- "highly detailed" / "ultra detailed" / "intricate details"
+- "professional photography" / "DSLR" / "Canon EOS"
+
+Instead, INVENT contextually relevant descriptors based on the SUBJECT and USER'S TASTE PROFILE.
+`;
+
   if (intensity <= 20) {
     return `
 
@@ -638,9 +685,10 @@ You are refining an existing prompt. Make only MINIMAL changes:
 VARIATION MODE: SUBTLE (${intensity}%)
 You are creating a subtle variation. Guidelines:
 - Keep the overall structure and mood
-- You may swap 1-2 adjectives for synonyms
+- You may swap 1-2 adjectives for UNIQUE synonyms (not stock phrases)
 - Keep 70-80% of original elements
-- Introduce 1 new small detail
+- Introduce 1 new contextually-specific detail
+${antiRepetitionWarning}
 `;
   } else if (intensity <= 60) {
     return `
@@ -648,35 +696,59 @@ You are creating a subtle variation. Guidelines:
 VARIATION MODE: MEDIUM (${intensity}%)
 You are creating a moderate variation. Guidelines:
 - Keep the subject and general theme
-- Change 3-4 descriptors or style elements
-- Introduce 1-2 new color or lighting choices
+- Change 3-4 descriptors with CREATIVE alternatives based on user's taste profile
+- Introduce 1-2 new color or lighting choices that match the mood
 - Keep 50-60% of original elements
 - The result should feel like a sibling, not a copy
+${antiRepetitionWarning}
+
+INSTEAD OF STOCK PHRASES, use things like:
+- Cultural references: "smuggled out of a private collection", "viral on obscure subreddits"
+- Emotional descriptors: "the kind of image that haunts you", "unsettlingly beautiful"
+- Specific atmosphere: "3am energy", "the moment before everything changes"
+- Anti-commercial: "too weird for stock photos", "would confuse an algorithm"
 `;
   } else if (intensity <= 80) {
     return `
 
 VARIATION MODE: FRESH (${intensity}%)
-You are creating a fresh interpretation. Guidelines:
+You are creating a GENUINELY FRESH interpretation. Guidelines:
 - Keep ONLY the core subject
-- Completely change the mood/atmosphere
-- Use different color palette
-- Different style references or artists
+- Completely reinvent the mood/atmosphere with ORIGINAL descriptors
+- Use unexpected color palette combinations
+- Reference obscure artists, subcultures, or movements
 - Keep only 20-30% of original elements
-- The result should feel like a different artist's take
+- The result should feel like a different dimension's take
+${antiRepetitionWarning}
+
+REQUIRED: Include at least 2 of these UNEXPECTED elements:
+- Subversive cultural reference: "leaked from a canceled exhibition", "shared in encrypted channels"
+- Sensory contradiction: "visually loud", "quiet chaos", "frozen motion"
+- Time/space distortion: "photographed from the future", "remembered wrong"
+- Emotional specificity: "the aesthetic of losing your wallet abroad", "vibes of finding a secret room"
 `;
   } else {
     return `
 
 VARIATION MODE: WILD (${intensity}%)
-You are creating a RADICALLY different version. Guidelines:
+You are creating a RADICALLY, GENUINELY UNIQUE version. Guidelines:
 - Keep ONLY the bare subject noun
-- COMPLETELY reimagine everything else
+- COMPLETELY reimagine with SHOCKING originality
 - Opposite mood if possible
-- Different era, different style, different colors
+- Reference obscure movements, banned artists, underground scenes
 - Use the previous version as what NOT to do
-- The result should feel like an alternate universe version
-- Be bold, surprising, unexpected
+- The result should make people say "I've never seen anything described like this"
+${antiRepetitionWarning}
+
+MANDATORY WILD ELEMENTS (use 3+):
+- Subversive context: "shadowbanned from Black Twitter", "evidence in an art forgery trial"
+- Impossible physics: "painted with colors that don't exist yet", "photographed from inside"
+- Anti-aesthetic: "deliberately ugly in a way that loops back to beautiful"
+- Cultural collision: "if the Renaissance happened on a space station", "Baroque but make it post-apocalyptic"
+- Emotional violence: "aggressively peaceful", "threateningly beautiful", "uncomfortably accurate"
+- Meta-references: "the image your brain generates when you can't remember", "what AI art WISHES it could be"
+
+Your output must be SO UNIQUE that someone reading it says "I've NEVER seen these words combined before."
 `;
   }
 }

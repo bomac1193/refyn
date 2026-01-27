@@ -20,10 +20,12 @@ interface OutputElement {
 }
 
 /**
- * Check if vision analysis is enabled
+ * Check if vision analysis is enabled (defaults to TRUE for better taste learning)
  */
 function isVisionAnalysisEnabled(): boolean {
-  return localStorage.getItem('refyn-vision-analysis') !== 'false';
+  // Default to true - only disabled if explicitly set to 'false'
+  const setting = localStorage.getItem('refyn-vision-analysis');
+  return setting !== 'false';
 }
 
 /**
@@ -103,6 +105,10 @@ const OUTPUT_SELECTORS: Record<string, {
   downloadBtn?: string;
   saveBtn?: string;
   promptSource?: string;
+  // Midjourney-specific
+  upscaleBtn?: string;
+  varyBtn?: string;
+  rerollBtn?: string;
 }> = {
   midjourney: {
     container: '[class*="jobGrid"], [class*="gallery"], [class*="feed"], [class*="grid"], [class*="ImageGrid"], [class*="JobList"]',
@@ -113,6 +119,10 @@ const OUTPUT_SELECTORS: Record<string, {
     downloadBtn: '[class*="download" i], [aria-label*="download" i], button[title*="download" i]',
     saveBtn: '[class*="save" i], [aria-label*="save" i], [class*="bookmark" i]',
     promptSource: '[class*="prompt"], [class*="description"], [class*="caption"], [data-testid*="prompt"]',
+    // Midjourney-specific action buttons (Discord & Web)
+    upscaleBtn: 'button', // We'll check text content for U1, U2, U3, U4
+    varyBtn: 'button', // We'll check text content for V1, V2, V3, V4
+    rerollBtn: 'button', // We'll check for 🔄 emoji
   },
   higgsfield: {
     container: '[class*="gallery"], [class*="feed"], [class*="grid"], [class*="container"], [class*="results"], [class*="creations"], [class*="library"], [class*="workspace"]',
@@ -375,6 +385,48 @@ function setupMutationObserver(): void {
 }
 
 /**
+ * Check if a button appears to be in an "active" or "selected" state
+ */
+function isButtonActive(button: HTMLElement): boolean {
+  // Check for common active state indicators
+  const activeIndicators = [
+    'active', 'selected', 'liked', 'favorited', 'pressed', 'checked',
+    'is-active', 'is-selected', 'is-liked', '--active', '--selected'
+  ];
+
+  const className = button.className.toLowerCase();
+  const ariaPressed = button.getAttribute('aria-pressed');
+  const ariaSelected = button.getAttribute('aria-selected');
+  const dataActive = button.dataset.active || button.dataset.selected || button.dataset.liked;
+
+  // Check class names
+  for (const indicator of activeIndicators) {
+    if (className.includes(indicator)) return true;
+  }
+
+  // Check aria attributes
+  if (ariaPressed === 'true' || ariaSelected === 'true') return true;
+
+  // Check data attributes
+  if (dataActive === 'true' || dataActive === '1') return true;
+
+  // Check for filled SVG (common pattern for like buttons)
+  const svg = button.querySelector('svg');
+  if (svg) {
+    const fill = svg.getAttribute('fill') || window.getComputedStyle(svg).fill;
+    if (fill && fill !== 'none' && fill !== 'transparent' && !fill.includes('currentColor')) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Track when popup was last shown to prevent immediate re-triggering
+let lastPopupShownAt = 0;
+const POPUP_COOLDOWN_MS = 500;
+
+/**
  * Set up listeners for platform action buttons (like, dislike, delete)
  */
 function setupActionListeners(): void {
@@ -384,6 +436,50 @@ function setupActionListeners(): void {
   // Use event delegation for efficiency
   document.body.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
+
+    // IMPORTANT: Ignore clicks inside Refyn elements (popups, overlays, panels)
+    if (target.closest('.refyn-like-feedback, .refyn-trash-feedback, .refyn-rating-overlay, #refyn-panel, #refyn-like-feedback, #refyn-dislike-feedback')) {
+      console.log('[Refyn Observer] Ignoring click inside Refyn element');
+      return;
+    }
+
+    // =====================================================
+    // MIDJOURNEY AUTO-DETECTION: Upscale, Vary, Re-roll
+    // =====================================================
+    if (currentPlatform === 'midjourney') {
+      const button = target.closest('button') as HTMLElement;
+      if (button) {
+        const buttonText = button.textContent?.trim() || '';
+
+        // Detect Upscale buttons (U1, U2, U3, U4) - Strong LIKE signal
+        if (/^U[1-4]$/.test(buttonText)) {
+          console.log('[Refyn Observer] Midjourney UPSCALE detected:', buttonText);
+          handleMidjourneyUpscale(button, buttonText);
+          return;
+        }
+
+        // Detect Vary buttons (V1, V2, V3, V4) - Moderate LIKE signal
+        if (/^V[1-4]$/.test(buttonText)) {
+          console.log('[Refyn Observer] Midjourney VARY detected:', buttonText);
+          handleMidjourneyVary(button, buttonText);
+          return;
+        }
+
+        // Detect Re-roll button (🔄) - DISLIKE signal for current results
+        if (buttonText.includes('🔄') || button.querySelector('[class*="reload"], [class*="refresh"], [class*="redo"]')) {
+          console.log('[Refyn Observer] Midjourney RE-ROLL detected');
+          handleMidjourneyReroll(button);
+          return;
+        }
+
+        // Also check for "Vary (Strong)" and "Vary (Subtle)" buttons
+        if (buttonText.toLowerCase().includes('vary')) {
+          console.log('[Refyn Observer] Midjourney VARY (menu) detected:', buttonText);
+          handleMidjourneyVary(button, buttonText);
+          return;
+        }
+      }
+    }
 
     // Check for delete button clicks
     if (config.deleteBtn && target.closest(config.deleteBtn)) {
@@ -395,20 +491,190 @@ function setupActionListeners(): void {
 
     // Check for like button clicks
     if (config.likeBtn && target.closest(config.likeBtn)) {
+      // Check cooldown - don't process if popup was just shown
+      if (Date.now() - lastPopupShownAt < POPUP_COOLDOWN_MS) {
+        console.log('[Refyn Observer] Ignoring like click - popup cooldown active');
+        return;
+      }
+
+      const likeButton = target.closest(config.likeBtn) as HTMLElement;
       const output = findOutputForAction(target);
       if (output) {
-        handleLikeAction(output);
+        // Wait briefly for platform UI to update, then check if button is now active
+        setTimeout(() => {
+          const isNowActive = isButtonActive(likeButton);
+          console.log('[Refyn Observer] Like button clicked, now active:', isNowActive);
+          if (isNowActive) {
+            handleLikeAction(output);
+          }
+          // Don't hide popup on un-like - let user finish their feedback
+        }, 100);
       }
     }
 
     // Check for dislike button clicks
     if (config.dislikeBtn && target.closest(config.dislikeBtn)) {
+      // Check cooldown
+      if (Date.now() - lastPopupShownAt < POPUP_COOLDOWN_MS) {
+        console.log('[Refyn Observer] Ignoring dislike click - popup cooldown active');
+        return;
+      }
+
+      const dislikeButton = target.closest(config.dislikeBtn) as HTMLElement;
       const output = findOutputForAction(target);
       if (output) {
-        handleDislikeAction(output);
+        // Wait briefly for platform UI to update, then check if button is now active
+        setTimeout(() => {
+          const isNowActive = isButtonActive(dislikeButton);
+          console.log('[Refyn Observer] Dislike button clicked, now active:', isNowActive);
+          if (isNowActive) {
+            handleDislikeAction(output);
+          }
+        }, 100);
       }
     }
   }, true);
+}
+
+// =====================================================
+// MIDJOURNEY AUTO-DETECTION HANDLERS
+// =====================================================
+
+/**
+ * Handle Midjourney Upscale (U1-U4) - Strong LIKE signal
+ * User chose to upscale this specific image from the grid
+ */
+async function handleMidjourneyUpscale(button: HTMLElement, buttonText: string): Promise<void> {
+  const imageIndex = parseInt(buttonText.charAt(1)) - 1; // 0-3
+  const prompt = findMidjourneyPromptNearButton(button);
+  const imageUrl = findMidjourneyImageFromGrid(button, imageIndex);
+
+  if (prompt) {
+    console.log('[Refyn Observer] Recording upscale as LIKE for image', imageIndex + 1);
+
+    // Record as a strong like
+    await recordOutputFeedback(prompt, `mj-upscale-${Date.now()}`, 'midjourney', 'like');
+
+    // Vision analysis on the upscaled image
+    if (imageUrl) {
+      analyzeImageAndUpdatePreferences(imageUrl, 'midjourney', true);
+    }
+
+    flashLearningIndicator('Learned from upscale choice');
+    showLearningToast('Learning from your upscale choice...');
+  }
+}
+
+/**
+ * Handle Midjourney Vary (V1-V4) - Moderate LIKE signal
+ * User liked this image enough to want variations
+ */
+async function handleMidjourneyVary(button: HTMLElement, buttonText: string): Promise<void> {
+  const prompt = findMidjourneyPromptNearButton(button);
+
+  // Extract image index if V1-V4 format
+  const match = buttonText.match(/V([1-4])/);
+  const imageIndex = match ? parseInt(match[1]) - 1 : 0;
+  const imageUrl = findMidjourneyImageFromGrid(button, imageIndex);
+
+  if (prompt) {
+    console.log('[Refyn Observer] Recording vary as moderate LIKE');
+
+    // Record as a like (vary = they liked it enough to iterate)
+    await recordOutputFeedback(prompt, `mj-vary-${Date.now()}`, 'midjourney', 'like');
+
+    // Vision analysis
+    if (imageUrl) {
+      analyzeImageAndUpdatePreferences(imageUrl, 'midjourney', true);
+    }
+
+    flashLearningIndicator('Learned from variation choice');
+  }
+}
+
+/**
+ * Handle Midjourney Re-roll (🔄) - DISLIKE signal
+ * User didn't like any of the 4 images, wants to try again
+ */
+async function handleMidjourneyReroll(button: HTMLElement): Promise<void> {
+  const prompt = findMidjourneyPromptNearButton(button);
+
+  if (prompt) {
+    console.log('[Refyn Observer] Recording re-roll as DISLIKE for all images');
+
+    // Record as regenerate (user didn't like results)
+    await recordOutputFeedback(prompt, `mj-reroll-${Date.now()}`, 'midjourney', 'regenerate');
+
+    flashLearningIndicator('Learned: not your style');
+    showLearningToast('Learning what to avoid...');
+  }
+}
+
+/**
+ * Find the prompt text near a Midjourney button
+ */
+function findMidjourneyPromptNearButton(button: HTMLElement): string | undefined {
+  // Walk up to find the message/job container
+  let parent = button.parentElement;
+  let depth = 0;
+
+  while (parent && depth < 20) {
+    // Discord: Look for message content
+    const messageContent = parent.querySelector('[class*="messageContent"], [class*="markup"], [class*="content"]');
+    if (messageContent) {
+      const text = messageContent.textContent?.trim();
+      // Filter out very short text and command-like text
+      if (text && text.length > 10 && !text.startsWith('/')) {
+        // Extract prompt - usually before the -- parameters
+        const promptMatch = text.match(/^\*\*(.+?)\*\*/);
+        if (promptMatch) return promptMatch[1];
+
+        // Or just take the text before --
+        const beforeParams = text.split(/\s--/)[0];
+        if (beforeParams && beforeParams.length > 5) return beforeParams;
+
+        return text;
+      }
+    }
+
+    // Midjourney Web: Look for prompt text
+    const promptEl = parent.querySelector('[class*="prompt"], [class*="Prompt"], [data-testid*="prompt"]');
+    if (promptEl?.textContent) {
+      return promptEl.textContent.trim();
+    }
+
+    parent = parent.parentElement;
+    depth++;
+  }
+
+  return undefined;
+}
+
+/**
+ * Find an image URL from a Midjourney grid by index
+ */
+function findMidjourneyImageFromGrid(button: HTMLElement, imageIndex: number): string | undefined {
+  let parent = button.parentElement;
+  let depth = 0;
+
+  while (parent && depth < 20) {
+    // Find all images in this container
+    const images = parent.querySelectorAll('img[src*="cdn.midjourney"], img[src*="cdn.discordapp"], img[src*="mj-"]');
+
+    if (images.length > 0) {
+      // If we have exactly 4 images (the grid), get the right one
+      if (images.length >= 4 && imageIndex < images.length) {
+        return (images[imageIndex] as HTMLImageElement).src;
+      }
+      // Otherwise return the first/most relevant image
+      return (images[0] as HTMLImageElement).src;
+    }
+
+    parent = parent.parentElement;
+    depth++;
+  }
+
+  return undefined;
 }
 
 /**
@@ -545,6 +811,7 @@ async function handleDislikeAction(output: OutputElement): Promise<void> {
   console.log('[Refyn Observer] Dislike detected for:', output.outputId);
 
   if (output.prompt) {
+    // Record the basic dislike feedback immediately
     await recordOutputFeedback(
       output.prompt,
       output.outputId,
@@ -552,8 +819,6 @@ async function handleDislikeAction(output: OutputElement): Promise<void> {
       'dislike'
     );
     output.rated = true;
-    flashLearningIndicator('Will avoid similar');
-    showLearningToast('Noted - will avoid similar outputs');
 
     // Vision analysis - learn what to avoid from the image
     const imageUrl = output.imageUrl || extractImageUrl(output.element);
@@ -562,7 +827,7 @@ async function handleDislikeAction(output: OutputElement): Promise<void> {
       analyzeImageAndUpdatePreferences(imageUrl, output.platform, false);
     }
 
-    // Log rejection to CTAD capture session
+    // Log rejection to CTAD capture session (basic - will be updated with reason from popup)
     try {
       await chrome.runtime.sendMessage({
         type: 'LOG_REJECTION',
@@ -574,6 +839,9 @@ async function handleDislikeAction(output: OutputElement): Promise<void> {
     } catch (error) {
       console.error('[Refyn Observer] Failed to log CTAD rejection:', error);
     }
+
+    // Show the "why didn't you like this?" popup for deeper learning
+    showDislikeFeedbackPopup(output.prompt, output.platform, output.outputId);
   }
 }
 
@@ -650,12 +918,13 @@ async function handleRefynLike(output: OutputElement, button: HTMLElement): Prom
     if (overlay) {
       const label = overlay.querySelector('.refyn-rating-label');
       if (label) {
-        label.textContent = 'Preference saved!';
+        label.textContent = 'Tell us more...';
         label.classList.add('refyn-rated');
       }
     }
 
-    showLearningToast('Learning your preferences...');
+    // Show feedback popup for detailed feedback
+    showLikeFeedbackPopup(output.prompt, output.platform, output.outputId);
   }
 }
 
@@ -678,12 +947,13 @@ async function handleRefynDislike(output: OutputElement, button: HTMLElement): P
     if (overlay) {
       const label = overlay.querySelector('.refyn-rating-label');
       if (label) {
-        label.textContent = 'Will avoid similar';
+        label.textContent = 'Tell us more...';
         label.classList.add('refyn-rated');
       }
     }
 
-    showLearningToast('Noted - adjusting suggestions');
+    // Show feedback popup for detailed feedback
+    showDislikeFeedbackPopup(output.prompt, output.platform, output.outputId);
   }
 }
 
@@ -777,12 +1047,25 @@ const LIKE_FEEDBACK_PRESETS = [
 
 let likeFeedbackElement: HTMLElement | null = null;
 let likeFeedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+let isLikeSubmitting = false; // Lock to prevent double submission
 
 /**
  * Show like feedback popup to learn why user liked an output
  */
 function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: string): void {
+  // Don't show if already submitting
+  if (isLikeSubmitting) {
+    console.log('[Refyn] Ignoring popup show - submission in progress');
+    return;
+  }
+
   hideLikeFeedbackPopup();
+  hideDislikeFeedbackPopup(); // Hide dislike popup if open
+
+  console.log('[Refyn] Showing like feedback popup for:', outputId);
+
+  // Set cooldown to prevent re-triggering
+  lastPopupShownAt = Date.now();
 
   likeFeedbackElement = document.createElement('div');
   likeFeedbackElement.id = 'refyn-like-feedback';
@@ -797,6 +1080,18 @@ function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: str
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
+      </div>
+      <div class="refyn-feedback-stars" data-rating="0">
+        <span class="refyn-feedback-stars-label">How much?</span>
+        <div class="refyn-feedback-stars-row">
+          ${[1,2,3,4,5].map(i => `
+            <button class="refyn-feedback-star" data-star="${i}" title="${i} star${i > 1 ? 's' : ''}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+            </button>
+          `).join('')}
+        </div>
       </div>
       <div class="refyn-like-feedback-options">
         ${LIKE_FEEDBACK_PRESETS.map(preset => `
@@ -856,13 +1151,59 @@ function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: str
 
   likeFeedbackElement.style.cssText = positionStyle;
 
-  // Add event listeners
+  // Track selected reason (don't submit until both star + reason are set)
+  let selectedReason: string | null = null;
+  let hasSubmitted = false; // Prevent multiple submissions
+
+  // Helper to check if both selections are made and auto-submit
+  const checkAndSubmit = () => {
+    if (hasSubmitted || isLikeSubmitting) {
+      console.log('[Refyn] Ignoring checkAndSubmit - already submitted');
+      return;
+    }
+
+    const starsContainer = likeFeedbackElement?.querySelector('.refyn-feedback-stars');
+    const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
+
+    console.log('[Refyn] checkAndSubmit - stars:', starRating, 'reason:', selectedReason);
+
+    if (starRating > 0 && selectedReason) {
+      hasSubmitted = true;
+      isLikeSubmitting = true;
+      // Both selected - show brief confirmation then submit
+      const inner = likeFeedbackElement?.querySelector('.refyn-like-feedback-inner');
+      if (inner) {
+        inner.classList.add('refyn-feedback-submitting');
+      }
+      setTimeout(() => {
+        if (selectedReason === 'custom') {
+          const input = likeFeedbackElement?.querySelector('.refyn-like-feedback-input') as HTMLInputElement;
+          submitLikeFeedback('custom', input?.value?.trim() || '');
+        } else {
+          submitLikeFeedback(selectedReason || 'unknown');
+        }
+      }, 400);
+    }
+  };
+
+  // Add event listeners - reason buttons just select, don't submit
   likeFeedbackElement.querySelectorAll('.refyn-like-feedback-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const reason = (btn as HTMLElement).dataset.reason;
-      submitLikeFeedback(reason || 'unknown');
+
+      // Clear previous selection
+      likeFeedbackElement?.querySelectorAll('.refyn-like-feedback-btn').forEach(b => {
+        b.classList.remove('active');
+      });
+
+      // Set new selection
+      btn.classList.add('active');
+      selectedReason = reason || null;
+
+      // Check if we can submit (both star + reason selected)
+      checkAndSubmit();
     });
   });
 
@@ -871,18 +1212,45 @@ function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: str
     hideLikeFeedbackPopup();
   });
 
-  // Skip button
+  // Skip button - allows skipping without both selections
   likeFeedbackElement.querySelector('[data-action="skip"]')?.addEventListener('click', () => {
-    flashLearningIndicator('Preference saved');
-    showLearningToast('Learning from your like...');
-    hideLikeFeedbackPopup();
+    // Submit whatever we have (or nothing)
+    const starsContainer = likeFeedbackElement?.querySelector('.refyn-feedback-stars');
+    const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
+    if (starRating > 0 || selectedReason) {
+      submitLikeFeedback(selectedReason || 'skipped');
+    } else {
+      flashLearningIndicator('Preference saved');
+      showLearningToast('Learning from your like...');
+      hideLikeFeedbackPopup();
+    }
   });
 
-  // Custom submit
+  // Custom input - select "custom" as reason when typing
+  const customInput = likeFeedbackElement.querySelector('.refyn-like-feedback-input') as HTMLInputElement;
+  customInput?.addEventListener('input', () => {
+    if (customInput.value?.trim()) {
+      // Clear other selections and mark as custom
+      likeFeedbackElement?.querySelectorAll('.refyn-like-feedback-btn').forEach(b => {
+        b.classList.remove('active');
+      });
+      selectedReason = 'custom';
+    }
+  });
+
+  // Custom submit button
   likeFeedbackElement.querySelector('[data-action="submit-custom"]')?.addEventListener('click', () => {
     const input = likeFeedbackElement?.querySelector('.refyn-like-feedback-input') as HTMLInputElement;
     if (input?.value?.trim()) {
-      submitLikeFeedback('custom', input.value.trim());
+      selectedReason = 'custom';
+      checkAndSubmit();
+      // If no stars selected, prompt user
+      const starsContainer = likeFeedbackElement?.querySelector('.refyn-feedback-stars');
+      const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
+      if (starRating === 0) {
+        starsContainer?.classList.add('refyn-feedback-stars-highlight');
+        setTimeout(() => starsContainer?.classList.remove('refyn-feedback-stars-highlight'), 1000);
+      }
     }
   });
 
@@ -891,9 +1259,56 @@ function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: str
     if ((e as KeyboardEvent).key === 'Enter') {
       const input = e.target as HTMLInputElement;
       if (input.value?.trim()) {
-        submitLikeFeedback('custom', input.value.trim());
+        selectedReason = 'custom';
+        checkAndSubmit();
       }
     }
+  });
+
+  // Star rating handlers
+  likeFeedbackElement.querySelectorAll('.refyn-feedback-star').forEach(star => {
+    star.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const rating = parseInt((star as HTMLElement).dataset.star || '0', 10);
+      const starsContainer = likeFeedbackElement?.querySelector('.refyn-feedback-stars');
+      if (starsContainer) {
+        starsContainer.setAttribute('data-rating', String(rating));
+        // Update visual state
+        likeFeedbackElement?.querySelectorAll('.refyn-feedback-star').forEach((s, i) => {
+          if (i < rating) {
+            s.classList.add('active');
+          } else {
+            s.classList.remove('active');
+          }
+        });
+      }
+      // Check if we can submit
+      checkAndSubmit();
+    });
+
+    // Hover preview
+    star.addEventListener('mouseenter', () => {
+      const rating = parseInt((star as HTMLElement).dataset.star || '0', 10);
+      likeFeedbackElement?.querySelectorAll('.refyn-feedback-star').forEach((s, i) => {
+        if (i < rating) {
+          s.classList.add('hover');
+        } else {
+          s.classList.remove('hover');
+        }
+      });
+    });
+
+    star.addEventListener('mouseleave', () => {
+      likeFeedbackElement?.querySelectorAll('.refyn-feedback-star').forEach(s => {
+        s.classList.remove('hover');
+      });
+    });
+  });
+
+  // Stop clicks inside popup from bubbling to document (prevents external close handlers)
+  likeFeedbackElement.addEventListener('click', (e) => {
+    e.stopPropagation();
   });
 
   document.body.appendChild(likeFeedbackElement);
@@ -903,26 +1318,35 @@ function showLikeFeedbackPopup(prompt: string, platform: Platform, outputId: str
     likeFeedbackElement?.classList.add('refyn-like-feedback-visible');
   });
 
-  // Auto-dismiss after 10 seconds
+  // Auto-dismiss after 30 seconds (longer since user needs to make two selections)
   likeFeedbackTimeout = setTimeout(() => {
-    flashLearningIndicator('Preference saved');
-    showLearningToast('Learning from your like...');
-    hideLikeFeedbackPopup();
-  }, 10000);
+    // Submit whatever we have
+    if (selectedReason) {
+      submitLikeFeedback(selectedReason);
+    } else {
+      flashLearningIndicator('Preference saved');
+      showLearningToast('Learning from your like...');
+      hideLikeFeedbackPopup();
+    }
+  }, 30000);
 }
 
 /**
  * Submit like feedback with reason
  */
 async function submitLikeFeedback(reason: string, customText?: string): Promise<void> {
+  console.log('[Refyn] submitLikeFeedback called:', reason);
+
   try {
     const prompt = likeFeedbackElement?.dataset.prompt || '';
     const platform = (likeFeedbackElement?.dataset.platform || 'unknown') as Platform;
     const outputId = likeFeedbackElement?.dataset.outputId || '';
+    const starsContainer = likeFeedbackElement?.querySelector('.refyn-feedback-stars');
+    const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
 
-    // Record the enhanced like feedback
+    // Record the enhanced like feedback with star rating
     const { recordLikeFeedback } = await import('@/lib/deepLearning');
-    await recordLikeFeedback(prompt, platform, reason, customText);
+    await recordLikeFeedback(prompt, platform, reason, customText, starRating);
 
     // Update CTAD selection with the reason
     try {
@@ -944,6 +1368,7 @@ async function submitLikeFeedback(reason: string, customText?: string): Promise<
           promptVersionId: outputId,
           likeReason: ctadReasonMap[reason] || 'other',
           customFeedback: customText,
+          starRating: starRating > 0 ? starRating : undefined,
         },
       });
     } catch (ctadError) {
@@ -952,10 +1377,11 @@ async function submitLikeFeedback(reason: string, customText?: string): Promise<
 
     // Show confirmation
     const reasonLabel = LIKE_FEEDBACK_PRESETS.find(p => p.id === reason)?.label || reason;
-    flashLearningIndicator(`Got it: ${reasonLabel}`);
+    const ratingInfo = starRating > 0 ? ` (${starRating}★)` : '';
+    flashLearningIndicator(`Got it: ${reasonLabel}${ratingInfo}`);
     showLearningToast('Learning what you love...');
 
-    console.log('[Refyn Observer] Like feedback recorded:', { reason, customText, promptSnippet: prompt.substring(0, 50) });
+    console.log('[Refyn Observer] Like feedback recorded:', { reason, customText, starRating, promptSnippet: prompt.substring(0, 50) });
   } catch (error) {
     console.error('[Refyn Observer] Error recording like feedback:', error);
     flashLearningIndicator('Preference saved!');
@@ -968,6 +1394,8 @@ async function submitLikeFeedback(reason: string, customText?: string): Promise<
  * Hide like feedback popup
  */
 function hideLikeFeedbackPopup(): void {
+  console.log('[Refyn] hideLikeFeedbackPopup called');
+
   if (likeFeedbackTimeout) {
     clearTimeout(likeFeedbackTimeout);
     likeFeedbackTimeout = null;
@@ -979,6 +1407,370 @@ function hideLikeFeedbackPopup(): void {
     setTimeout(() => {
       likeFeedbackElement?.remove();
       likeFeedbackElement = null;
+      isLikeSubmitting = false; // Reset lock
     }, 200);
+  } else {
+    isLikeSubmitting = false; // Reset lock even if no element
+  }
+}
+
+// =====================================================
+// DISLIKE FEEDBACK POPUP - Learn why users dislike outputs
+// =====================================================
+
+const DISLIKE_FEEDBACK_PRESETS = [
+  { id: 'poor-quality', label: 'Poor quality' },
+  { id: 'wrong-style', label: 'Wrong style' },
+  { id: 'doesnt-match', label: "Doesn't match" },
+  { id: 'too-similar', label: 'Too similar' },
+  { id: 'bad-composition', label: 'Bad composition' },
+  { id: 'other', label: 'Other...' },
+];
+
+let dislikeFeedbackElement: HTMLElement | null = null;
+let dislikeFeedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+let isDislikeSubmitting = false; // Lock to prevent double submission
+
+/**
+ * Show dislike feedback popup to learn why user disliked an output
+ */
+function showDislikeFeedbackPopup(prompt: string, platform: Platform, outputId: string): void {
+  // Don't show if already submitting
+  if (isDislikeSubmitting) {
+    console.log('[Refyn] Ignoring dislike popup show - submission in progress');
+    return;
+  }
+
+  hideDislikeFeedbackPopup();
+  hideLikeFeedbackPopup(); // Hide like popup if open
+
+  console.log('[Refyn] Showing dislike feedback popup for:', outputId);
+
+  // Set cooldown to prevent re-triggering
+  lastPopupShownAt = Date.now();
+
+  dislikeFeedbackElement = document.createElement('div');
+  dislikeFeedbackElement.id = 'refyn-dislike-feedback';
+  dislikeFeedbackElement.className = 'refyn-like-feedback'; // Reuse like feedback styles
+  dislikeFeedbackElement.innerHTML = `
+    <div class="refyn-like-feedback-inner">
+      <div class="refyn-like-feedback-header">
+        <span class="refyn-like-feedback-title">What went wrong?</span>
+        <button class="refyn-like-feedback-close" data-action="close">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="refyn-feedback-stars" data-rating="0">
+        <span class="refyn-feedback-stars-label">How bad?</span>
+        <div class="refyn-feedback-stars-row">
+          ${[1,2,3,4,5].map(i => `
+            <button class="refyn-feedback-star" data-star="${i}" title="${i} star${i > 1 ? 's' : ''}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+      <div class="refyn-like-feedback-options">
+        ${DISLIKE_FEEDBACK_PRESETS.map(preset => `
+          <button class="refyn-like-feedback-btn" data-reason="${preset.id}">
+            <span class="refyn-like-feedback-label">${preset.label}</span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="refyn-like-feedback-custom" id="refyn-dislike-custom" style="display: none;">
+        <input type="text" class="refyn-like-feedback-input" placeholder="Other reason..." maxlength="100">
+        <button class="refyn-like-feedback-submit" data-action="submit-custom">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+      </div>
+      <div class="refyn-like-feedback-skip">
+        <button class="refyn-like-feedback-skip-btn" data-action="skip">Skip</button>
+      </div>
+    </div>
+  `;
+
+  // Store data for submission
+  dislikeFeedbackElement.dataset.prompt = prompt;
+  dislikeFeedbackElement.dataset.platform = platform;
+  dislikeFeedbackElement.dataset.outputId = outputId;
+
+  // Smart positioning
+  const refynPanel = document.getElementById('refyn-panel');
+  const panelRect = refynPanel?.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+
+  let positionStyle: string;
+  if (panelRect && panelRect.right > viewportWidth - 400) {
+    positionStyle = `
+      position: fixed;
+      bottom: 80px;
+      left: 24px;
+      right: auto;
+      z-index: 2147483646;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
+  } else {
+    positionStyle = `
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      z-index: 2147483646;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
+  }
+
+  dislikeFeedbackElement.style.cssText = positionStyle;
+
+  // Track selected reason
+  let selectedDislikeReason: string | null = null;
+  let hasSubmittedDislike = false; // Prevent multiple submissions
+
+  // Helper to check if both selections are made and auto-submit
+  const checkAndSubmitDislike = () => {
+    if (hasSubmittedDislike || isDislikeSubmitting) {
+      console.log('[Refyn] Ignoring checkAndSubmitDislike - already submitted');
+      return;
+    }
+
+    const starsContainer = dislikeFeedbackElement?.querySelector('.refyn-feedback-stars');
+    const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
+
+    console.log('[Refyn] checkAndSubmitDislike - stars:', starRating, 'reason:', selectedDislikeReason);
+
+    if (starRating > 0 && selectedDislikeReason) {
+      hasSubmittedDislike = true;
+      isDislikeSubmitting = true;
+      const inner = dislikeFeedbackElement?.querySelector('.refyn-like-feedback-inner');
+      if (inner) {
+        inner.classList.add('refyn-feedback-submitting');
+      }
+      setTimeout(() => {
+        if (selectedDislikeReason === 'custom') {
+          const input = dislikeFeedbackElement?.querySelector('.refyn-like-feedback-input') as HTMLInputElement;
+          submitDislikeFeedback(selectedDislikeReason, input?.value?.trim() || '');
+        } else {
+          submitDislikeFeedback(selectedDislikeReason || 'unknown');
+        }
+      }, 400);
+    }
+  };
+
+  // Reason buttons
+  dislikeFeedbackElement.querySelectorAll('.refyn-like-feedback-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const reason = (btn as HTMLElement).dataset.reason;
+
+      // Clear previous selection
+      dislikeFeedbackElement?.querySelectorAll('.refyn-like-feedback-btn').forEach(b => {
+        b.classList.remove('active');
+      });
+
+      btn.classList.add('active');
+
+      if (reason === 'other') {
+        const customSection = dislikeFeedbackElement?.querySelector('#refyn-dislike-custom') as HTMLElement;
+        if (customSection) {
+          customSection.style.display = 'flex';
+          const input = customSection.querySelector('input');
+          input?.focus();
+        }
+        selectedDislikeReason = 'custom';
+      } else {
+        selectedDislikeReason = reason || null;
+        checkAndSubmitDislike();
+      }
+    });
+  });
+
+  // Close button
+  dislikeFeedbackElement.querySelector('[data-action="close"]')?.addEventListener('click', () => {
+    hideDislikeFeedbackPopup();
+  });
+
+  // Skip button
+  dislikeFeedbackElement.querySelector('[data-action="skip"]')?.addEventListener('click', () => {
+    const starsContainer = dislikeFeedbackElement?.querySelector('.refyn-feedback-stars');
+    const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
+    if (starRating > 0 || selectedDislikeReason) {
+      submitDislikeFeedback(selectedDislikeReason || 'skipped');
+    } else {
+      flashLearningIndicator('Will avoid similar');
+      showLearningToast('Noted - will avoid similar outputs');
+      hideDislikeFeedbackPopup();
+    }
+  });
+
+  // Custom input
+  const customInput = dislikeFeedbackElement.querySelector('.refyn-like-feedback-input') as HTMLInputElement;
+  customInput?.addEventListener('input', () => {
+    if (customInput.value?.trim()) {
+      selectedDislikeReason = 'custom';
+    }
+  });
+
+  // Custom submit
+  dislikeFeedbackElement.querySelector('[data-action="submit-custom"]')?.addEventListener('click', () => {
+    const input = dislikeFeedbackElement?.querySelector('.refyn-like-feedback-input') as HTMLInputElement;
+    if (input?.value?.trim()) {
+      selectedDislikeReason = 'custom';
+      checkAndSubmitDislike();
+      const starsContainer = dislikeFeedbackElement?.querySelector('.refyn-feedback-stars');
+      const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
+      if (starRating === 0) {
+        starsContainer?.classList.add('refyn-feedback-stars-highlight');
+        setTimeout(() => starsContainer?.classList.remove('refyn-feedback-stars-highlight'), 1000);
+      }
+    }
+  });
+
+  // Enter key on custom input
+  dislikeFeedbackElement.querySelector('.refyn-like-feedback-input')?.addEventListener('keydown', (e) => {
+    if ((e as KeyboardEvent).key === 'Enter') {
+      const input = e.target as HTMLInputElement;
+      if (input.value?.trim()) {
+        selectedDislikeReason = 'custom';
+        checkAndSubmitDislike();
+      }
+    }
+  });
+
+  // Star rating handlers
+  dislikeFeedbackElement.querySelectorAll('.refyn-feedback-star').forEach(star => {
+    star.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const rating = parseInt((star as HTMLElement).dataset.star || '0', 10);
+      const starsContainer = dislikeFeedbackElement?.querySelector('.refyn-feedback-stars');
+      if (starsContainer) {
+        starsContainer.setAttribute('data-rating', String(rating));
+        dislikeFeedbackElement?.querySelectorAll('.refyn-feedback-star').forEach((s, i) => {
+          if (i < rating) {
+            s.classList.add('active');
+          } else {
+            s.classList.remove('active');
+          }
+        });
+      }
+      checkAndSubmitDislike();
+    });
+
+    star.addEventListener('mouseenter', () => {
+      const rating = parseInt((star as HTMLElement).dataset.star || '0', 10);
+      dislikeFeedbackElement?.querySelectorAll('.refyn-feedback-star').forEach((s, i) => {
+        if (i < rating) {
+          s.classList.add('hover');
+        } else {
+          s.classList.remove('hover');
+        }
+      });
+    });
+
+    star.addEventListener('mouseleave', () => {
+      dislikeFeedbackElement?.querySelectorAll('.refyn-feedback-star').forEach(s => {
+        s.classList.remove('hover');
+      });
+    });
+  });
+
+  // Stop clicks inside popup from bubbling to document (prevents external close handlers)
+  dislikeFeedbackElement.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  document.body.appendChild(dislikeFeedbackElement);
+
+  requestAnimationFrame(() => {
+    dislikeFeedbackElement?.classList.add('refyn-like-feedback-visible');
+  });
+
+  // Auto-dismiss after 30 seconds (longer since user needs to make two selections)
+  dislikeFeedbackTimeout = setTimeout(() => {
+    if (selectedDislikeReason) {
+      submitDislikeFeedback(selectedDislikeReason);
+    } else {
+      flashLearningIndicator('Will avoid similar');
+      showLearningToast('Noted - will avoid similar outputs');
+      hideDislikeFeedbackPopup();
+    }
+  }, 30000);
+}
+
+/**
+ * Submit dislike feedback with reason
+ */
+async function submitDislikeFeedback(reason: string, customText?: string): Promise<void> {
+  console.log('[Refyn] submitDislikeFeedback called:', reason);
+
+  try {
+    const prompt = dislikeFeedbackElement?.dataset.prompt || '';
+    const platform = (dislikeFeedbackElement?.dataset.platform || 'unknown') as Platform;
+    const outputId = dislikeFeedbackElement?.dataset.outputId || '';
+    const starsContainer = dislikeFeedbackElement?.querySelector('.refyn-feedback-stars');
+    const starRating = parseInt(starsContainer?.getAttribute('data-rating') || '0', 10);
+
+    // Record the enhanced dislike feedback with star rating
+    const { recordTrashFeedback } = await import('@/lib/deepLearning');
+    await recordTrashFeedback(prompt, platform, reason, customText, starRating);
+
+    // Update CTAD rejection with the reason
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'LOG_REJECTION',
+        payload: {
+          promptVersionId: outputId,
+          reason: reason,
+          customFeedback: customText,
+          starRating: starRating > 0 ? starRating : undefined,
+        },
+      });
+    } catch (ctadError) {
+      console.error('[Refyn Observer] Failed to update CTAD rejection:', ctadError);
+    }
+
+    // Show confirmation
+    const reasonLabel = DISLIKE_FEEDBACK_PRESETS.find(p => p.id === reason)?.label || reason;
+    const ratingInfo = starRating > 0 ? ` (${starRating}★)` : '';
+    flashLearningIndicator(`Noted: ${reasonLabel}${ratingInfo}`);
+    showLearningToast('Will avoid similar outputs');
+
+    console.log('[Refyn Observer] Dislike feedback recorded:', { reason, customText, starRating, promptSnippet: prompt.substring(0, 50) });
+  } catch (error) {
+    console.error('[Refyn Observer] Error recording dislike feedback:', error);
+    flashLearningIndicator('Will avoid similar');
+  }
+
+  hideDislikeFeedbackPopup();
+}
+
+/**
+ * Hide dislike feedback popup
+ */
+function hideDislikeFeedbackPopup(): void {
+  console.log('[Refyn] hideDislikeFeedbackPopup called');
+
+  if (dislikeFeedbackTimeout) {
+    clearTimeout(dislikeFeedbackTimeout);
+    dislikeFeedbackTimeout = null;
+  }
+
+  if (dislikeFeedbackElement) {
+    dislikeFeedbackElement.classList.remove('refyn-like-feedback-visible');
+    dislikeFeedbackElement.classList.add('refyn-like-feedback-fade');
+    setTimeout(() => {
+      dislikeFeedbackElement?.remove();
+      dislikeFeedbackElement = null;
+      isDislikeSubmitting = false; // Reset lock
+    }, 200);
+  } else {
+    isDislikeSubmitting = false; // Reset lock even if no element
   }
 }

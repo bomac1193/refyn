@@ -110,6 +110,7 @@ export interface DeepPreferences {
     text: string;
     prompt: string;
     platform: Platform;
+    starRating?: number;
     timestamp: number;
   }>;
   // Like feedback tracking - why users like outputs
@@ -122,8 +123,14 @@ export interface DeepPreferences {
     prompt: string;
     platform: Platform;
     reason: string;
+    starRating?: number;
     timestamp: number;
   }>;
+  // Star rating distribution for likes and dislikes
+  starRatings?: {
+    like: Record<number, number>;
+    dislike: Record<number, number>;
+  };
   // Cross-platform patterns - keywords that work across multiple platforms
   crossPlatformKeywords?: Record<string, {
     platforms: Platform[];
@@ -394,15 +401,19 @@ export async function recordLikeFeedback(
   prompt: string,
   platform: Platform,
   reason: string,
-  customText?: string
+  customText?: string,
+  starRating?: number
 ): Promise<void> {
-  console.log('[Refyn Deep Learning] Recording like feedback:', { reason, platform, customText });
+  console.log('[Refyn Deep Learning] Recording like feedback:', { reason, platform, customText, starRating });
 
   const prefs = await getDeepPreferences();
   const keywords = extractKeywordsFromPrompt(prompt);
 
   // Positive weight for like with reason - stronger than basic like
-  const weight = reason === 'skipped' ? 2 : 3.5;
+  // Star rating (1-5) multiplies the weight: 1 star = 0.5x, 5 stars = 2.5x
+  const baseWeight = reason === 'skipped' ? 2 : 3.5;
+  const ratingMultiplier = starRating && starRating > 0 ? (starRating / 2) : 1;
+  const weight = baseWeight * ratingMultiplier;
 
   // Update keyword scores with stronger positive weight
   const allKeywords = Object.values(keywords).flat();
@@ -447,6 +458,17 @@ export async function recordLikeFeedback(
     prefs.likeKeywords[reason] = prefs.likeKeywords[reason].slice(-30);
   }
 
+  // Store star rating distribution
+  if (starRating && starRating > 0) {
+    if (!prefs.starRatings) {
+      prefs.starRatings = { like: {}, dislike: {} };
+    }
+    if (!prefs.starRatings.like[starRating]) {
+      prefs.starRatings.like[starRating] = 0;
+    }
+    prefs.starRatings.like[starRating]++;
+  }
+
   // Store custom text for detailed analysis
   if (customText && customText.trim()) {
     if (!prefs.customLikeFeedback) {
@@ -457,6 +479,7 @@ export async function recordLikeFeedback(
       prompt: prompt.substring(0, 100),
       platform,
       reason,
+      starRating,
       timestamp: Date.now(),
     });
     // Keep only last 100 for comprehensive learning
@@ -504,15 +527,19 @@ export async function recordTrashFeedback(
   prompt: string,
   platform: Platform,
   reason: string,
-  customText?: string
+  customText?: string,
+  starRating?: number
 ): Promise<void> {
-  console.log('[Refyn Deep Learning] Recording trash feedback:', { reason, platform, customText });
+  console.log('[Refyn Deep Learning] Recording trash feedback:', { reason, platform, customText, starRating });
 
   const prefs = await getDeepPreferences();
   const keywords = extractKeywordsFromPrompt(prompt);
 
   // More negative weight for trash with reason
-  const weight = reason === 'skipped' ? -1 : -2.5;
+  // Star rating (1-5) multiplies the weight: 1 star = mild dislike, 5 stars = strong dislike
+  const baseWeight = reason === 'skipped' ? -1 : -2.5;
+  const ratingMultiplier = starRating && starRating > 0 ? (starRating / 2) : 1;
+  const weight = baseWeight * ratingMultiplier;
 
   // Update keyword scores
   const allKeywords = Object.values(keywords).flat();
@@ -557,6 +584,17 @@ export async function recordTrashFeedback(
     prefs.reasonKeywords[reason] = prefs.reasonKeywords[reason].slice(-20);
   }
 
+  // Store star rating distribution
+  if (starRating && starRating > 0) {
+    if (!prefs.starRatings) {
+      prefs.starRatings = { like: {}, dislike: {} };
+    }
+    if (!prefs.starRatings.dislike[starRating]) {
+      prefs.starRatings.dislike[starRating] = 0;
+    }
+    prefs.starRatings.dislike[starRating]++;
+  }
+
   // Store custom text for analysis
   if (customText && customText.trim()) {
     if (!prefs.customFeedback) {
@@ -566,6 +604,7 @@ export async function recordTrashFeedback(
       text: customText.trim(),
       prompt: prompt.substring(0, 100),
       platform,
+      starRating,
       timestamp: Date.now(),
     });
     // Keep only last 50
@@ -585,6 +624,7 @@ export async function recordTrashFeedback(
 
 /**
  * Get keywords to suggest (high positive scores)
+ * Filters out generic/stock keywords in favor of niche, AI-analyzed ones
  */
 export async function getSuggestedKeywords(
   platform: Platform,
@@ -598,6 +638,9 @@ export async function getSuggestedKeywords(
   for (const [category, keywords] of Object.entries(prefs.keywordScores)) {
     for (const [keyword, score] of Object.entries(keywords)) {
       if (score > 0) {
+        // Skip stock/generic keywords - we want niche suggestions
+        if (isStockKeyword(keyword)) continue;
+
         const platformBonus = prefs.platformScores[platform]?.[keyword] || 0;
         const totalScore = score + platformBonus * 0.5;
 
@@ -609,10 +652,17 @@ export async function getSuggestedKeywords(
     }
   }
 
-  // Sort by score and return top N
-  return suggestions
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+  // Prioritize custom/quoted keywords (more niche) over predefined categories
+  const nicheCategories = ['custom', 'quoted', 'technique', 'subjects', 'setting'];
+  suggestions.sort((a, b) => {
+    const aIsNiche = nicheCategories.includes(a.category) ? 1 : 0;
+    const bIsNiche = nicheCategories.includes(b.category) ? 1 : 0;
+    // First sort by niche status, then by score
+    if (aIsNiche !== bIsNiche) return bIsNiche - aIsNiche;
+    return b.score - a.score;
+  });
+
+  return suggestions.slice(0, limit);
 }
 
 /**
@@ -648,9 +698,10 @@ export async function getKeywordsToAvoid(
  * Check if a keyword category is relevant to a platform category
  */
 function isRelevantCategory(keywordCategory: string, platformCategory: PlatformCategory): boolean {
-  const imageCategories = ['lighting', 'color', 'style', 'quality', 'camera', 'medium', 'render', 'composition', 'mood'];
+  // Include vision analysis categories: 'colors' (plural), 'technique', etc.
+  const imageCategories = ['lighting', 'color', 'colors', 'style', 'quality', 'camera', 'medium', 'render', 'composition', 'mood', 'technique', 'subjects', 'setting'];
   const musicCategories = ['genre', 'tempo', 'instruments', 'vocals', 'mood'];
-  const videoCategories = ['lighting', 'color', 'style', 'movement', 'mood', 'camera'];
+  const videoCategories = ['lighting', 'color', 'colors', 'style', 'movement', 'mood', 'camera', 'technique'];
 
   switch (platformCategory) {
     case 'image':
@@ -662,6 +713,29 @@ function isRelevantCategory(keywordCategory: string, platformCategory: PlatformC
     default:
       return true;
   }
+}
+
+/**
+ * Filter out generic/stock keywords that we don't want to suggest
+ * These are overused and don't provide unique taste differentiation
+ */
+const STOCK_KEYWORDS_TO_FILTER = [
+  'trending on artstation', 'artstation', 'artstation hq',
+  'unreal engine', 'unreal engine 5', 'ue5',
+  'octane render', 'octane',
+  '8k', '4k', '8k resolution', '4k uhd',
+  'highly detailed', 'ultra detailed', 'hyper detailed',
+  'best quality', 'masterpiece', 'award winning',
+  'professional', 'professional photography',
+  'dslr', 'canon eos', 'nikon',
+  'ray tracing', 'global illumination',
+];
+
+function isStockKeyword(keyword: string): boolean {
+  const lower = keyword.toLowerCase();
+  return STOCK_KEYWORDS_TO_FILTER.some(stock =>
+    lower === stock || lower.includes(stock)
+  );
 }
 
 /**

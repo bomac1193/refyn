@@ -1748,6 +1748,50 @@
   color: #EF4444;
 }
 
+/* Suggestion Sections (Like / Avoid) */
+.refyn-suggestion-section {
+  margin-bottom: 8px;
+}
+
+.refyn-suggestion-section:last-child {
+  margin-bottom: 0;
+}
+
+.refyn-suggestion-section-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  padding-left: 2px;
+}
+
+.refyn-like-label {
+  color: #22C55E;
+}
+
+.refyn-avoid-label {
+  color: #EF4444;
+}
+
+.refyn-suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.refyn-suggestion-chip.refyn-like {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.15);
+}
+
+.refyn-suggestion-chip.refyn-like:hover {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #22C55E;
+}
+
 /* Prompt Analysis Indicator */
 .refyn-prompt-score {
   display: flex;
@@ -2338,6 +2382,94 @@
 }
 
 /* =====================================================
+   FEEDBACK STAR RATING (shared by like & trash popups)
+   ===================================================== */
+
+.refyn-feedback-stars {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.refyn-feedback-stars-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #71717A;
+  white-space: nowrap;
+}
+
+.refyn-feedback-stars-row {
+  display: flex;
+  gap: 4px;
+}
+
+.refyn-feedback-star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #52525B;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refyn-feedback-star:hover,
+.refyn-feedback-star.hover {
+  background: rgba(255, 200, 0, 0.1);
+  color: #FFC800;
+  transform: scale(1.1);
+}
+
+.refyn-feedback-star.active {
+  background: rgba(255, 200, 0, 0.2);
+  color: #FFC800;
+}
+
+.refyn-feedback-star.active svg {
+  fill: #FFC800;
+}
+
+/* Highlight stars when user needs to rate */
+.refyn-feedback-stars-highlight {
+  animation: refyn-pulse-highlight 0.5s ease 2;
+}
+
+@keyframes refyn-pulse-highlight {
+  0%, 100% { background: transparent; }
+  50% { background: rgba(255, 200, 0, 0.15); border-radius: 8px; }
+}
+
+/* Submitting state - brief visual confirmation */
+.refyn-feedback-submitting {
+  opacity: 0.7;
+  transform: scale(0.98);
+  transition: all 0.3s ease;
+}
+
+.refyn-feedback-submitting::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  color: #00F0FF;
+  animation: refyn-checkmark 0.4s ease;
+}
+
+@keyframes refyn-checkmark {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* =====================================================
    PROMINENT OUTPUT ACTION BUTTONS
    ===================================================== */
 
@@ -2916,6 +3048,288 @@
   font-size: 18px;
   font-weight: 600;
   color: #00F0FF;
+}
+
+/* =====================================================
+   TASTE LEARNING PROGRESS STYLES
+   ===================================================== */
+
+.refyn-taste-progress-section {
+  margin-bottom: 10px;
+}
+
+.refyn-taste-progress {
+  padding: 10px;
+  background: rgba(26, 26, 30, 0.6);
+  border-radius: 8px;
+}
+
+.refyn-progress-loading {
+  color: #71717A;
+  font-size: 10px;
+  text-align: center;
+}
+
+.refyn-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.refyn-progress-level {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.refyn-progress-count {
+  font-size: 10px;
+  color: #71717A;
+}
+
+.refyn-progress-bar-container {
+  position: relative;
+  height: 8px;
+  background: rgba(63, 63, 70, 0.5);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.refyn-progress-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+.refyn-progress-markers {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  pointer-events: none;
+}
+
+.refyn-progress-marker {
+  position: absolute;
+  width: 2px;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(-50%);
+}
+
+.refyn-progress-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin: 10px 0 8px;
+  padding: 8px 0;
+  background: rgba(39, 39, 42, 0.4);
+  border-radius: 6px;
+}
+
+.refyn-progress-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.refyn-progress-stat .refyn-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.refyn-progress-stat .refyn-stat-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #71717A;
+}
+
+.refyn-stat-positive .refyn-stat-value {
+  color: #00F0FF;
+}
+
+.refyn-stat-negative .refyn-stat-value {
+  color: #A1A1AA;
+}
+
+.refyn-progress-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(63, 63, 70, 0.5);
+}
+
+.refyn-progress-encourage {
+  font-size: 9px;
+  color: #71717A;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* =====================================================
+   IMPORT HISTORY SECTION STYLES
+   ===================================================== */
+
+.refyn-import-section {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(39, 39, 42, 0.4);
+  border-radius: 8px;
+  border: 1px solid rgba(63, 63, 70, 0.3);
+}
+
+.refyn-import-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.refyn-import-icon {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.refyn-import-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #FAFAFA;
+  letter-spacing: 0.3px;
+}
+
+.refyn-import-desc {
+  font-size: 10px;
+  color: #71717A;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+.refyn-import-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.refyn-import-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.15) 0%, rgba(0, 196, 204, 0.1) 100%);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 6px;
+  color: #00F0FF;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.refyn-import-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.25) 0%, rgba(0, 196, 204, 0.2) 100%);
+  border-color: rgba(0, 240, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.refyn-import-btn:active {
+  transform: translateY(0);
+}
+
+.refyn-import-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.refyn-import-btn-icon {
+  font-size: 12px;
+}
+
+.refyn-import-progress {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.refyn-import-progress.active {
+  display: flex;
+}
+
+.refyn-import-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(63, 63, 70, 0.5);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.refyn-import-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00F0FF 0%, #00C4CC 100%);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.refyn-import-status {
+  font-size: 10px;
+  color: #A1A1AA;
+  text-align: center;
+}
+
+.refyn-import-complete {
+  display: none;
+  padding: 10px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.refyn-import-complete.active {
+  display: block;
+}
+
+.refyn-import-complete-text {
+  font-size: 11px;
+  color: #22C55E;
+  font-weight: 500;
+}
+
+.refyn-import-stats {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.refyn-import-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.refyn-import-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #00F0FF;
+}
+
+.refyn-import-stat-label {
+  font-size: 9px;
+  color: #71717A;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* =====================================================

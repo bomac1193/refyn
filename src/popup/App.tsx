@@ -317,6 +317,23 @@ const App: React.FC = () => {
     }
   };
 
+  // Stock keywords to filter out - these are too generic
+  const STOCK_KEYWORDS = [
+    'trending on artstation', 'artstation', 'artstation hq', 'deviantart',
+    'unreal engine', 'unreal engine 5', 'ue5', 'unity',
+    'octane render', 'octane', 'vray', 'v-ray', 'cinema 4d',
+    '8k', '4k', '8k resolution', '4k uhd', 'hyper-realistic',
+    'highly detailed', 'ultra detailed', 'hyper detailed', 'intricate details',
+    'best quality', 'masterpiece', 'award winning', 'award-winning',
+    'professional', 'professional photography', 'dslr', 'canon eos', 'nikon',
+    'ray tracing', 'global illumination', 'photorealistic',
+  ];
+
+  const isStockKeyword = (keyword: string): boolean => {
+    const lower = keyword.toLowerCase();
+    return STOCK_KEYWORDS.some(stock => lower === stock || lower.includes(stock));
+  };
+
   // Load profile data
   const loadProfile = async () => {
     try {
@@ -325,11 +342,17 @@ const App: React.FC = () => {
       if (deepPrefsResponse?.success && deepPrefsResponse.data) {
         const prefs = deepPrefsResponse.data;
 
-        // Extract top keywords from all categories
+        // Niche categories to prioritize
+        const nicheCategories = ['custom', 'quoted', 'technique', 'subjects', 'setting', 'colors'];
+
+        // Extract top keywords from all categories, filtering stock keywords
         const allKeywords: DeepPreference[] = [];
         if (prefs.keywordScores) {
           for (const [category, keywords] of Object.entries(prefs.keywordScores)) {
             for (const [keyword, score] of Object.entries(keywords as Record<string, number>)) {
+              // Filter out stock keywords for positive scores
+              if (score > 0 && isStockKeyword(keyword)) continue;
+
               if (Math.abs(score) > 0.5) {
                 allKeywords.push({
                   keyword,
@@ -342,9 +365,14 @@ const App: React.FC = () => {
           }
         }
 
-        // Sort by absolute score
-        allKeywords.sort((a, b) => Math.abs(b.score) - Math.abs(a.score));
-        setDeepPreferences(allKeywords.slice(0, 20));
+        // Sort: prioritize niche categories, then by absolute score
+        allKeywords.sort((a, b) => {
+          const aIsNiche = nicheCategories.includes(a.category) ? 1 : 0;
+          const bIsNiche = nicheCategories.includes(b.category) ? 1 : 0;
+          if (aIsNiche !== bIsNiche) return bIsNiche - aIsNiche;
+          return Math.abs(b.score) - Math.abs(a.score);
+        });
+        setDeepPreferences(allKeywords.slice(0, 25));
 
         // Set stats
         if (prefs.stats) {
@@ -352,7 +380,8 @@ const App: React.FC = () => {
             refined: history.length,
             saved: saved.length,
             liked: prefs.stats.totalLikes || 0,
-            disliked: prefs.stats.totalDislikes || 0,
+            // Combine dislikes and deletes for total negative feedback
+            disliked: (prefs.stats.totalDislikes || 0) + (prefs.stats.totalDeletes || 0),
           });
         }
       }
@@ -702,6 +731,85 @@ const App: React.FC = () => {
               </button>
             </div>
 
+            {/* Taste Learning Progress */}
+            {(() => {
+              const totalFeedback = profileStats.liked + profileStats.disliked;
+              const targetBasic = 20;
+              const targetGood = 50;
+              const targetExcellent = 100;
+              const maxTarget = 150;
+
+              let level = 'Getting Started';
+              let levelColor = 'text-zinc-400';
+              let progressColor = 'bg-zinc-500';
+              let nextMilestone = targetBasic;
+              let progressPercent = Math.min((totalFeedback / maxTarget) * 100, 100);
+
+              if (totalFeedback >= targetExcellent) {
+                level = 'Excellent';
+                levelColor = 'text-green-400';
+                progressColor = 'bg-green-500';
+                nextMilestone = maxTarget;
+              } else if (totalFeedback >= targetGood) {
+                level = 'Good Understanding';
+                levelColor = 'text-refyn-cyan';
+                progressColor = 'bg-refyn-cyan';
+                nextMilestone = targetExcellent;
+              } else if (totalFeedback >= targetBasic) {
+                level = 'Learning';
+                levelColor = 'text-yellow-400';
+                progressColor = 'bg-yellow-500';
+                nextMilestone = targetGood;
+              }
+
+              return (
+                <div className="bg-refyn-active/20 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-zinc-400">Taste Recognition:</span>
+                      <span className={`text-xs font-medium ${levelColor}`}>{level}</span>
+                    </div>
+                    <span className="text-xs text-zinc-500">
+                      {totalFeedback}/{nextMilestone} ratings
+                    </span>
+                  </div>
+                  <div className="h-2 bg-refyn-active/50 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${progressColor} transition-all duration-500`}
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-zinc-600">
+                    <span>0</span>
+                    <span className={totalFeedback >= targetBasic ? 'text-yellow-500' : ''}>20</span>
+                    <span className={totalFeedback >= targetGood ? 'text-refyn-cyan' : ''}>50</span>
+                    <span className={totalFeedback >= targetExcellent ? 'text-green-400' : ''}>100</span>
+                    <span>150+</span>
+                  </div>
+                  {totalFeedback < targetBasic && (
+                    <p className="text-[10px] text-zinc-500 text-center">
+                      Rate {targetBasic - totalFeedback} more images for basic taste recognition
+                    </p>
+                  )}
+                  {totalFeedback >= targetBasic && totalFeedback < targetGood && (
+                    <p className="text-[10px] text-zinc-500 text-center">
+                      Rate {targetGood - totalFeedback} more for improved suggestions
+                    </p>
+                  )}
+                  {totalFeedback >= targetGood && totalFeedback < targetExcellent && (
+                    <p className="text-[10px] text-zinc-500 text-center">
+                      Rate {targetExcellent - totalFeedback} more for excellent personalization
+                    </p>
+                  )}
+                  {totalFeedback >= targetExcellent && (
+                    <p className="text-[10px] text-green-400/70 text-center">
+                      Great job! Your taste profile is well-trained
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Stats Cards */}
             <div className="grid grid-cols-4 gap-2">
               <div className="bg-refyn-active/30 rounded-lg p-3 text-center">
@@ -747,17 +855,17 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Disliked Keywords */}
-                {deepPreferences.filter((p) => p.score < 0).length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-4 h-4 text-red-400">✕</span>
-                      <span className="text-xs font-medium text-zinc-300">Keywords to Avoid</span>
-                    </div>
+                {/* Disliked Keywords - Always show */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 text-red-400 text-xs">✕</span>
+                    <span className="text-xs font-medium text-zinc-300">Keywords to Avoid</span>
+                  </div>
+                  {deepPreferences.filter((p) => p.score < 0).length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
                       {deepPreferences
                         .filter((p) => p.score < 0)
-                        .slice(0, 8)
+                        .slice(0, 10)
                         .map((pref, i) => (
                           <span
                             key={i}
@@ -768,23 +876,38 @@ const App: React.FC = () => {
                           </span>
                         ))}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <p className="text-xs text-zinc-500 italic">
+                      Dislike outputs to teach Refyn what to avoid
+                    </p>
+                  )}
+                </div>
 
-                {/* Categories */}
-                <div className="space-y-2">
-                  <span className="text-xs font-medium text-zinc-400">Top Categories</span>
+                {/* Learning Source - More specific than generic categories */}
+                <div className="space-y-2 pt-2 border-t border-refyn-active/20">
+                  <span className="text-xs font-medium text-zinc-500">Learned From</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {Array.from(new Set(deepPreferences.slice(0, 10).map((p) => p.category))).map(
-                      (category) => (
+                    {(() => {
+                      const sources = new Map<string, number>();
+                      deepPreferences.slice(0, 15).forEach(p => {
+                        const source = p.category === 'custom' ? 'Your Prompts' :
+                                      p.category === 'quoted' ? 'Quoted Text' :
+                                      p.category === 'technique' ? 'AI Vision' :
+                                      p.category === 'subjects' ? 'AI Vision' :
+                                      p.category === 'colors' ? 'AI Vision' :
+                                      p.category === 'setting' ? 'AI Vision' :
+                                      'Prompt Keywords';
+                        sources.set(source, (sources.get(source) || 0) + 1);
+                      });
+                      return Array.from(sources.entries()).map(([source, count]) => (
                         <span
-                          key={category}
-                          className="px-2 py-1 text-xs rounded-full bg-refyn-active/50 text-zinc-300"
+                          key={source}
+                          className="px-2 py-1 text-xs rounded-full bg-refyn-active/30 text-zinc-400"
                         >
-                          {category}
+                          {source} ({count})
                         </span>
-                      )
-                    )}
+                      ));
+                    })()}
                   </div>
                 </div>
               </div>
