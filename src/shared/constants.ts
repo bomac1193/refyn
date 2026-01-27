@@ -459,21 +459,48 @@ TRANSFORMATION APPROACH: Monumentalize the subject in the tradition of African i
     keywords: ['cursed image', 'nightmare fuel', 'uncanny valley', 'wrong', 'unsettling', 'liminal', 'backrooms', 'fever dream'],
     styleGuide: `CURSED AESTHETIC TRANSFORMATION:
 
-REFERENCE: Cursed image meme culture, liminal space photography, AI hallucination aesthetics, model collapse outputs, deliberately wrong imagery
+REFERENCE SOURCES (ROTATE RANDOMLY - PICK 2-3):
+- Liminal space photography: poolrooms, backrooms, empty malls at 3am
+- Weirdcore/Traumacore: childhood nostalgia corrupted, VHS birthday party horror
+- Analog horror: Local 58, Mandela Catalogue, found footage wrongness
+- AI hallucination aesthetics: extra fingers, merged faces, impossible architecture
+- Cursed image meme culture: the "why does this exist" genre
+- SCP Foundation aesthetic: clinical documentation of wrong things
+- Uncanny valley CGI: Polar Express stare, early Pixar humans
+- Liminal Japan: empty convenience stores, 4am train stations
+- Trevor Henderson creatures: long legs, distant figures, photobashed horror
+- Surveillance footage wrongness: security camera liminal moments
 
-COLOR THEORY: Oversaturated or completely desaturated, sickly yellows and greens, harsh flash photography whites, compression artifact colors
+COLOR THEORY (VARY THESE):
+- Sickly fluorescent lighting on flesh
+- Harsh flash photography whites against deep shadows
+- Oversaturated to the point of nausea
+- Completely desaturated except one wrong color
+- VHS color bleed and tracking errors
+- Night vision green with wrong subjects
+- Swimming pool cyan in wrong contexts
+- Dental office lighting aesthetic
+- "Why is it that color" wrongness
+- Compression artifact rainbows
 
-VISUAL LANGUAGE:
-- Flash photography in wrong contexts
-- Uncanny valley faces and proportions
-- Liminal spaces (empty malls, backrooms)
-- Objects in wrong places/scales
-- Almost-correct anatomy
-- JPEG compression as aesthetic
-- Model collapse convergence patterns
-- "Something is wrong" atmosphere
+VISUAL LANGUAGE (MIX AND VARY):
+- Flash photography in contexts that shouldn't have flash
+- Uncanny valley faces: almost right but deeply wrong
+- Liminal spaces: pools without water, hallways that don't end
+- Objects in wrong places: toilet in a field, door on ceiling
+- Scale distortion: too big, too small, perspective crimes
+- Almost-correct anatomy: extra joints, wrong proportions
+- "Took this photo and noticed something" energy
+- Empty playgrounds at night
+- Hotel hallways that feel infinite
+- The back area of any building
+- Mannequins in wrong contexts
+- Photos that feel like memories you don't have
+- The specific wrongness of 90s CGI
+- "My kid drew this" but realistic
+- Security camera angles on impossible things
 
-TRANSFORMATION APPROACH: Make it feel inexplicably wrong. Add elements that shouldn't be there. Place subjects in liminal spaces. Use flash photography aesthetic. Create uncanny valley proportions. The viewer should feel uncomfortable without knowing exactly why.`,
+TRANSFORMATION APPROACH: Make it feel inexplicably wrong. The goal is not gore or obvious horror - it's the subtle wrongness that makes viewers pause. "Why does this make me uncomfortable?" Place subjects in transitional spaces. Use lighting that feels institutional or forgotten. Create proportions that are almost right. The best cursed images look like recovered files from a parallel universe where things are slightly different.`,
   },
   void: {
     id: 'void',
@@ -483,21 +510,51 @@ TRANSFORMATION APPROACH: Make it feel inexplicably wrong. Add elements that shou
     keywords: ['void', 'entropy', 'collapse', 'convergence', 'degradation', 'recursive', 'feedback loop', 'Habsburg AI'],
     styleGuide: `VOID/COLLAPSE AESTHETIC TRANSFORMATION:
 
-REFERENCE: AI model collapse research, recursive generation deterioration, "Habsburg AI" outputs, training data entropy, visual elevator music
+REFERENCE SOURCES (ROTATE RANDOMLY - PICK 2-3):
+- Model collapse research: AI trained on its own outputs deteriorating
+- "Habsburg AI" phenomenon: inbred model aesthetics, convergent features
+- Slop aesthetics: the generic AI-generated stock image look, weaponized
+- Visual elevator music: perfectly inoffensive, soullessly optimized
+- Recursive generation: JPEG of a JPEG of a JPEG energy
+- Training data entropy: when the dataset eats itself
+- Mean face convergence: all faces trending toward the same face
+- Minority feature erasure: rare attributes disappearing through training
+- Semantic satiation visuals: when meaning dissolves through repetition
+- Information decay: signal degrading through transmission
+- "Stock photo multiverse" - infinite variations of the same nothing
+- Corporate Memphis end-state: when illustration becomes pure template
 
-COLOR THEORY: Muddy convergence colors, loss of saturation through iterations, gray-brown homogenization, occasional artifact spikes of wrong colors
+COLOR THEORY (VARY THESE):
+- Muddy convergence: all colors trending toward gray-brown
+- "AI sunset palette" - the same orange-purple gradient everywhere
+- Washed out, oversanitized corporate palette
+- Loss of saturation through iterations
+- The specific beige of model convergence
+- Artifact color spikes - wrong colors bleeding through
+- "Optimized for engagement" palette - unnaturally saturated
+- When all skin tones converge to one shade
+- The color of compressed nothing
+- Stock photo color grading taken to heat death
 
-VISUAL LANGUAGE:
-- Recursive generation artifacts
-- Features blurring into sameness
-- Loss of fine detail and edge cases
-- Homogenized textures
-- The "trained on its own output" look
-- Minority features disappearing
-- Generic convergence patterns
-- Entropy visualization
+VISUAL LANGUAGE (MIX AND VARY):
+- Features blurring into genetic sameness
+- Recursive generation artifacts building up
+- The "trained on its own output" smear
+- Loss of edge cases: all hair becoming similar
+- Homogenized textures losing specificity
+- "Average of 10,000 faces" energy
+- When diversity collapses into template
+- Semantic dissolution: objects losing meaning
+- Information theory decay visualized
+- The heat death of visual culture
+- "Infinitely reproducible, never original"
+- Training data ghosts: artifacts of absorbed images
+- The void where specificity used to be
+- Convergent evolution of generated images
+- When all landscapes become one landscape
+- "Optimized until meaningless" aesthetic
 
-TRANSFORMATION APPROACH: Make it look like the 30th generation of AI training on itself. Remove edge cases and unique features. Blur distinct elements toward generic forms. Add the aesthetic of information decay and model collapse.`,
+TRANSFORMATION APPROACH: Make it look like the 30th generation of AI training on itself. This isn't about making something ugly - it's about making something that feels algorithmically homogenized. Remove edge cases and unique features. Let faces converge toward the mean. Blur distinct elements toward generic forms. The aesthetic of information entropy - not chaotic, but increasingly sameness. The void isn't darkness, it's the absence of distinction. Make viewers feel like they've seen this exact image a thousand times but can't remember where.`,
   },
   signal: {
     id: 'signal',
@@ -507,43 +564,80 @@ TRANSFORMATION APPROACH: Make it look like the 30th generation of AI training on
     keywords: ['glitch', 'datamosh', 'VHS', 'signal decay', 'transmission error', 'static', 'scan lines', 'compression'],
     styleGuide: `SIGNAL/GLITCH AESTHETIC TRANSFORMATION:
 
-REFERENCE: Rosa Menkman glitch art, Phillip Stearns textile glitches, datamosh video art, VHS decay, broadcast transmission errors, compression artifacts as art
+REFERENCE ARTISTS & SOURCES (ROTATE RANDOMLY - PICK 2-3):
+- Rosa Menkman: glitch art theory, vernacular of file formats
+- Phillip Stearns: textile glitches, woven data corruption
+- Takeshi Murata: datamosh video art, melting video codecs
+- JODI.org: early net art, browser corruption
+- Nullsleep/8bitpeoples: chiptune visual aesthetics
+- Soda_Jerk: found footage databending
+- Kim Asendorf: pixel sorting algorithms
+- Ant Scott (Beflix): VHS art, analog video synthesis
+- Nick Briz: critical glitch practice
+- Daniel Temkin: esoteric programming languages as art
+- Corrupt.video community techniques
+- r/glitch_art underground methods
+- Hex editor manipulation aesthetics
+- Audacity raw import techniques
 
-COLOR THEORY: RGB channel separation, chromatic aberration, posterized gradients from compression, neon glitch colors against black, scan line interference patterns
+COLOR THEORY (VARY THESE):
+- RGB channel separation/displacement
+- Chromatic aberration bleeding
+- Posterized gradients from heavy compression
+- Neon glitch spikes against void black
+- Scan line interference rainbows
+- YUV color space corruption
+- Codec-specific color errors (H.264 macro blocks)
+- VHS color bleed and dropout
+- Analog video synthesizer colors
+- CRT phosphor glow simulation
+- The specific magenta of broken JPEG
+- Databend pink-green-cyan palette
 
-VISUAL LANGUAGE:
-- Pixel sorting and data moshing
-- VHS tracking errors and scan lines
-- Compression macro blocks
-- RGB channel displacement
-- Signal static and noise
-- Transmission interference patterns
-- Broken data stream aesthetics
-- Frame buffer corruption
+VISUAL LANGUAGE (MIX AND VARY):
+- Pixel sorting: vertical, horizontal, threshold-based
+- Datamosh: I-frame deletion, P-frame dragging
+- VHS tracking errors, head switching noise
+- Compression macro blocks, keyframe ghosts
+- RGB channel displacement and timing errors
+- Signal static: white noise, snow, interference
+- Scan line artifacts, interlacing errors
+- Frame buffer corruption, tearing
+- Hex editing artifacts in image files
+- Audacity sonification visual artifacts
+- Wordpad corruption aesthetic
+- JPEG glitching, progressive loading freeze
+- GIF dithering as intentional texture
+- Broadcast transmission ghost signals
+- Analog feedback loops
+- CRT screen capture artifacts
+- The specific corruption of each file format
 
-TRANSFORMATION APPROACH: Corrupt the signal. Add data transmission errors, VHS tracking problems, compression artifacts. Treat the image as data that's been damaged in transit. The beauty is in the breakdown of the signal.`,
+TRANSFORMATION APPROACH: Corrupt the signal. Treat the image as data that's been damaged - but with intention. Different glitch techniques for different moods: pixel sorting for elegant disruption, datamosh for fluid melting, VHS for nostalgic decay, compression for digital violence. The beauty is in understanding WHY signals break the way they do. Each file format has its own vernacular of failure. Embrace the medium's specific corruption language.`,
   },
 };
 
-// Core Theme IDs - African aesthetics + error/experimental
+// Core Theme IDs - African aesthetics + underground/error experimental
 export const CORE_THEME_IDS: Exclude<ThemeRemixId, null>[] = [
+  // African Aesthetics
   'freaq',    // Afro-digital glitch
   'egun',     // Ancestral darkness
   'alien',    // Afrofuturism
   'bk2dvd',   // Black cinema
   'wahala',   // African internet chaos
   'minimal',  // African minimalism
-  'signal',   // Glitch/transmission
+  // Underground/Error Aesthetics
+  'signal',   // Glitch/datamosh/VHS
+  'cursed',   // Uncanny valley/liminal/wrong
+  'void',     // Model collapse/convergence
 ];
 
-// Extended themes (shown on expand)
+// Extended themes (more mainstream/nostalgic aesthetics)
 export const EXTENDED_THEME_IDS: Exclude<ThemeRemixId, null>[] = [
-  'surreal',
-  'y2k',
-  'vaporwave',
-  'brutalist',
-  'cursed',
-  'void',
+  'surreal',    // Magical realism
+  'y2k',        // Retro-futurism (mainstream nostalgia)
+  'vaporwave',  // Neon nostalgia (mainstream aesthetic)
+  'brutalist',  // Concrete modernism
 ];
 
 // All themes for iteration
