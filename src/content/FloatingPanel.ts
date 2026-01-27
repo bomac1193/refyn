@@ -12,7 +12,7 @@ let isMinimized = false;
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
 let currentPlatform: Platform = 'unknown';
-let selectedMode: OptimizationMode = 'crazy';
+let selectedMode: OptimizationMode = 'mutate';
 let selectedPreset: string | null = null;
 let selectedTheme: ThemeRemixId = null;
 let lastOriginalPrompt = '';
@@ -441,13 +441,13 @@ function generatePanelHTML(): string {
 
           <!-- Mode Selector (Compact) -->
           <div class="refyn-mode-selector-compact">
-          <button class="refyn-mode-btn ${selectedMode === 'enhance' ? 'active' : ''}" data-mode="enhance" title="Improve clarity and detail">
+          <button class="refyn-mode-btn ${selectedMode === 'polish' ? 'active' : ''}" data-mode="polish" title="Refine clarity, quality, and structure">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
             </svg>
-            Enhance
+            Polish
           </button>
-          <button class="refyn-mode-btn ${selectedMode === 'expand' ? 'active' : ''}" data-mode="expand" title="Add more details">
+          <button class="refyn-mode-btn ${selectedMode === 'expand' ? 'active' : ''}" data-mode="expand" title="Add richness, detail, atmosphere">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="15 3 21 3 21 9"></polyline>
               <polyline points="9 21 3 21 3 15"></polyline>
@@ -456,26 +456,13 @@ function generatePanelHTML(): string {
             </svg>
             Expand
           </button>
-          <button class="refyn-mode-btn ${selectedMode === 'style' ? 'active' : ''}" data-mode="style" title="Add style references">
+          <button class="refyn-mode-btn refyn-mode-mutate ${selectedMode === 'mutate' ? 'active' : ''}" data-mode="mutate" title="Experimental techniques, break rules">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="13.5" cy="6.5" r="2.5"></circle>
-              <circle cx="19" cy="17" r="2"></circle>
-              <circle cx="6" cy="12" r="3"></circle>
+              <path d="M12 2v6l3-3M12 8l-3-3"/>
+              <ellipse cx="12" cy="16" rx="6" ry="5"/>
+              <path d="M12 11v5"/>
             </svg>
-            Style+
-          </button>
-          <button class="refyn-mode-btn ${selectedMode === 'params' ? 'active' : ''}" data-mode="params" title="Add parameters">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-            Params
-          </button>
-          <button class="refyn-mode-btn refyn-mode-crazy ${selectedMode === 'crazy' ? 'active' : ''}" data-mode="crazy" title="Hidden platform tricks & magic triggers">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-            </svg>
-            Crazy
+            Mutate
           </button>
         </div>
 

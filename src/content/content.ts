@@ -332,7 +332,7 @@ async function handleToolbarClick(event: Event) {
 
   switch (action) {
     case 'refyn':
-      await optimizeAndInsert(selectedText, 'enhance');
+      await optimizeAndInsert(selectedText, 'polish');
       break;
 
     case 'copy':

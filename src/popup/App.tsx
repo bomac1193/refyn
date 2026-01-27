@@ -59,7 +59,7 @@ const App: React.FC = () => {
   const [detectedPlatform, setDetectedPlatform] = useState<Platform>('unknown');
   const [inputPrompt, setInputPrompt] = useState('');
   const [outputPrompt, setOutputPrompt] = useState('');
-  const [mode, setMode] = useState<OptimizationMode>('enhance');
+  const [mode, setMode] = useState<OptimizationMode>('polish');
   const [genomeTags, setGenomeTags] = useState<GenomeTag[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,7 +143,21 @@ const App: React.FC = () => {
       setPlatform(lastPlatform);
     }
     if (lastMode) {
-      setMode(lastMode);
+      // Migrate old mode names to new ones (stored values could be legacy modes)
+      const storedMode = lastMode as string;
+      let migratedMode: OptimizationMode = 'polish'; // default fallback
+      if (storedMode === 'enhance' || storedMode === 'style' || storedMode === 'params') {
+        migratedMode = 'polish';
+        chrome.storage.local.set({ [STORAGE_KEYS.LAST_MODE]: 'polish' });
+      } else if (storedMode === 'crazy') {
+        migratedMode = 'mutate';
+        chrome.storage.local.set({ [STORAGE_KEYS.LAST_MODE]: 'mutate' });
+      } else if (storedMode === 'expand') {
+        migratedMode = 'expand';
+      } else if (storedMode === 'polish' || storedMode === 'mutate') {
+        migratedMode = storedMode as OptimizationMode;
+      }
+      setMode(migratedMode);
     }
     if (moodboardMode) {
       setIsMoodboardMode(moodboardMode);

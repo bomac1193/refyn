@@ -317,44 +317,33 @@ export function getSystemPrompt(platform: Platform): string {
 // Build mode-specific instruction - based on prompt engineering research
 export function getModeInstruction(mode: OptimizationMode): string {
   const instructions: Record<OptimizationMode, string> = {
-    enhance: `ENHANCE MODE - Apply the prompt mastery principles:
-1. CLARITY: Remove vague words (nice, good, cool, very, really). Be direct.
-2. SPECIFICITY: Replace generic terms with precise descriptors. "Warm golden hour sunlight" not "nice lighting".
-3. STRUCTURE: Organize with commas and brackets. Group related concepts.
-4. Preserve the user's core vision while making every word count.
+    polish: `POLISH MODE - Refine clarity, quality, and structure:
+1. CLARITY: Remove vague words (nice, good, cool, very, really). Be direct and precise.
+2. SPECIFICITY: Replace generic terms with concrete descriptors. "Warm golden hour sunlight" not "nice lighting".
+3. STRUCTURE: Organize with commas and brackets. Group related concepts logically.
+4. QUALITY: Add appropriate quality boosters and platform-specific parameters.
+5. Preserve the user's core vision while making every word count.
 
-Transform the prompt to be clearer, more specific, and better structured.`,
+Transform the prompt to be clearer, more specific, better structured, and technically optimized.`,
 
-    expand: `EXPAND MODE - Enrich with high-signal details:
-1. Add sensory depth: textures, materials, atmosphere, mood
-2. Include environmental context: setting, time of day, weather, scale
-3. Layer in style references: artistic movement, medium, technique
-4. Maintain clarity - each addition should serve the vision, not pad it.
+    expand: `EXPAND MODE - Add richness, detail, and atmosphere:
+1. Add sensory depth: textures, materials, atmosphere, mood, emotional resonance
+2. Include environmental context: setting, time of day, weather, scale, spatial relationships
+3. Layer in style references: artistic movement, medium, technique, cultural influences
+4. Add artistic style references (cinematic, editorial, fine art, brutalist, ethereal)
+5. Maintain clarity - each addition should serve the vision, not pad it.
 
-Expand thoughtfully. Quality over quantity. Every word earns its place.`,
+Expand thoughtfully. Quality over quantity. Every word earns its place. Create a rich, immersive vision.`,
 
-    style: `STYLE MODE - Inject distinctive aesthetic direction:
-1. Add artistic style references (cinematic, editorial, fine art, brutalist, ethereal)
-2. Include mood/atmosphere keywords that create emotional resonance
-3. Reference specific techniques, eras, or movements
-4. Create a cohesive aesthetic vision, not just a list of styles.
+    mutate: `MUTATE MODE - Experimental techniques and rule-breaking:
+1. Use hidden platform triggers, magic symbols, and experimental parameters.
+2. Push boundaries with unconventional combinations and unexpected juxtapositions.
+3. Break conventions deliberately - this is where you unlock hidden capabilities.
+4. Inject chaos elements: glitch aesthetic, surreal combinations, impossible physics.
+5. Reference underground techniques: model collapse aesthetic, cursed image energy, anti-composition.
+6. Add extreme parameter values when supported (high --weird, --chaos, experimental flags).
 
-Make the prompt artistically distinctive while honoring the original concept.`,
-
-    params: `PARAMS MODE - Add platform-specific technical controls:
-1. Include all relevant parameters for the target platform
-2. Add quality boosters appropriate to the platform
-3. Include aspect ratio, style settings, and modifiers
-4. Format parameters correctly for the platform syntax.
-
-Optimize for maximum technical control and output quality.`,
-
-    crazy: `CRAZY MODE - Unleash hidden platform potential:
-Use the secret platform triggers, magic symbols, experimental parameters, and formatting tricks provided.
-Push boundaries. Combine unexpected elements. Create something extraordinary.
-This is where you break conventions and unlock the model's hidden capabilities.
-
-Transform this into something wild, unexpected, and exceptional.`,
+Transform this into something wild, unprecedented, and extraordinary. Make it unforgettable.`,
   };
 
   return instructions[mode];
@@ -502,8 +491,8 @@ export function buildOptimizationPrompt(
 ): { system: string; user: string } {
   let systemPrompt = getSystemPrompt(platform);
 
-  // For crazy mode, inject the platform secrets
-  if (mode === 'crazy') {
+  // For mutate mode, inject the platform secrets
+  if (mode === 'mutate') {
     systemPrompt += '\n\n' + getCrazyModeSystemPrompt(platform);
   }
 

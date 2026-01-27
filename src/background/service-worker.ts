@@ -511,7 +511,7 @@ async function handleMessage(message: Message): Promise<unknown> {
           content,
           platform,
           parentId,
-          (mode as 'enhance' | 'expand' | 'style' | 'params' | 'manual') || 'manual'
+          (mode as 'polish' | 'expand' | 'mutate' | 'manual') || 'manual'
         );
         return { success: true, data: node };
       }
@@ -861,7 +861,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     try {
       await chrome.tabs.sendMessage(tab.id, {
         type: 'OPTIMIZE_SELECTION',
-        payload: 'enhance',
+        payload: 'polish',
       });
     } catch (error) {
       console.error('[Refyn] Failed to optimize selection:', error);

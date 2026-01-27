@@ -107,7 +107,7 @@ export const PLATFORM_CATEGORIES: Record<PlatformCategory, Platform[]> = {
 export const DEFAULT_SETTINGS: UserSettings = {
   autoDetectPlatform: true,
   showFloatingToolbar: true,
-  defaultMode: 'enhance',
+  defaultMode: 'polish',
   theme: 'dark',
 };
 
@@ -159,25 +159,17 @@ export const POPUP_DIMENSIONS = {
 
 // Optimization Mode Labels
 export const MODE_LABELS: Record<string, { label: string; description: string }> = {
-  enhance: {
-    label: 'Enhance',
-    description: 'Improve clarity and detail',
+  polish: {
+    label: 'Polish',
+    description: 'Refine clarity, quality, and structure',
   },
   expand: {
     label: 'Expand',
-    description: 'Add more descriptive elements',
+    description: 'Add richness, detail, atmosphere',
   },
-  style: {
-    label: 'Style+',
-    description: 'Add artistic style references',
-  },
-  params: {
-    label: 'Params',
-    description: 'Add platform-specific parameters',
-  },
-  crazy: {
-    label: 'Crazy',
-    description: 'Hidden platform tricks & magic triggers',
+  mutate: {
+    label: 'Mutate',
+    description: 'Experimental techniques, break rules',
   },
 };
 
@@ -431,6 +423,78 @@ VISUAL LANGUAGE:
 
 TRANSFORMATION APPROACH: Monumentalize the subject in the tradition of African independence-era architecture. Surround it with raw concrete masses that speak to nation-building dreams. Use harsh geometric forms that cast dramatic shadows in equatorial light. Let the weight and permanence speak to African futures built in concrete.`,
   },
+  cursed: {
+    id: 'cursed',
+    name: 'Cursed',
+    emoji: '☠️',
+    description: 'Nightmare fuel, uncanny valley, deliberately wrong',
+    keywords: ['cursed image', 'nightmare fuel', 'uncanny valley', 'wrong', 'unsettling', 'liminal', 'backrooms', 'fever dream'],
+    styleGuide: `CURSED AESTHETIC TRANSFORMATION:
+
+REFERENCE: Cursed image meme culture, liminal space photography, AI hallucination aesthetics, model collapse outputs, deliberately wrong imagery
+
+COLOR THEORY: Oversaturated or completely desaturated, sickly yellows and greens, harsh flash photography whites, compression artifact colors
+
+VISUAL LANGUAGE:
+- Flash photography in wrong contexts
+- Uncanny valley faces and proportions
+- Liminal spaces (empty malls, backrooms)
+- Objects in wrong places/scales
+- Almost-correct anatomy
+- JPEG compression as aesthetic
+- Model collapse convergence patterns
+- "Something is wrong" atmosphere
+
+TRANSFORMATION APPROACH: Make it feel inexplicably wrong. Add elements that shouldn't be there. Place subjects in liminal spaces. Use flash photography aesthetic. Create uncanny valley proportions. The viewer should feel uncomfortable without knowing exactly why.`,
+  },
+  void: {
+    id: 'void',
+    name: 'Void',
+    emoji: '🕳️',
+    description: 'Model collapse aesthetic, convergence, entropy',
+    keywords: ['void', 'entropy', 'collapse', 'convergence', 'degradation', 'recursive', 'feedback loop', 'Habsburg AI'],
+    styleGuide: `VOID/COLLAPSE AESTHETIC TRANSFORMATION:
+
+REFERENCE: AI model collapse research, recursive generation deterioration, "Habsburg AI" outputs, training data entropy, visual elevator music
+
+COLOR THEORY: Muddy convergence colors, loss of saturation through iterations, gray-brown homogenization, occasional artifact spikes of wrong colors
+
+VISUAL LANGUAGE:
+- Recursive generation artifacts
+- Features blurring into sameness
+- Loss of fine detail and edge cases
+- Homogenized textures
+- The "trained on its own output" look
+- Minority features disappearing
+- Generic convergence patterns
+- Entropy visualization
+
+TRANSFORMATION APPROACH: Make it look like the 30th generation of AI training on itself. Remove edge cases and unique features. Blur distinct elements toward generic forms. Add the aesthetic of information decay and model collapse.`,
+  },
+  signal: {
+    id: 'signal',
+    name: 'Signal',
+    emoji: '📡',
+    description: 'Glitch, datamosh, transmission decay, VHS',
+    keywords: ['glitch', 'datamosh', 'VHS', 'signal decay', 'transmission error', 'static', 'scan lines', 'compression'],
+    styleGuide: `SIGNAL/GLITCH AESTHETIC TRANSFORMATION:
+
+REFERENCE: Rosa Menkman glitch art, Phillip Stearns textile glitches, datamosh video art, VHS decay, broadcast transmission errors, compression artifacts as art
+
+COLOR THEORY: RGB channel separation, chromatic aberration, posterized gradients from compression, neon glitch colors against black, scan line interference patterns
+
+VISUAL LANGUAGE:
+- Pixel sorting and data moshing
+- VHS tracking errors and scan lines
+- Compression macro blocks
+- RGB channel displacement
+- Signal static and noise
+- Transmission interference patterns
+- Broken data stream aesthetics
+- Frame buffer corruption
+
+TRANSFORMATION APPROACH: Corrupt the signal. Add data transmission errors, VHS tracking problems, compression artifacts. Treat the image as data that's been damaged in transit. The beauty is in the breakdown of the signal.`,
+  },
 };
 
 // Theme IDs for iteration
@@ -445,6 +509,9 @@ export const THEME_REMIX_IDS: Exclude<ThemeRemixId, null>[] = [
   'y2k',
   'vaporwave',
   'brutalist',
+  'cursed',
+  'void',
+  'signal',
 ];
 
 // =====================================================

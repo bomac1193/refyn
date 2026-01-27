@@ -25,7 +25,7 @@ export interface PlatformInfo {
 }
 
 // Optimization Types
-export type OptimizationMode = 'enhance' | 'expand' | 'style' | 'params' | 'crazy';
+export type OptimizationMode = 'polish' | 'expand' | 'mutate';
 
 // Theme Remix Types - transforms aesthetic while keeping subject
 export type ThemeRemixId =
@@ -39,6 +39,9 @@ export type ThemeRemixId =
   | 'y2k'        // Early 2000s, chrome, cyber
   | 'vaporwave'  // Aesthetic, nostalgic, neon pink/blue
   | 'brutalist'  // Raw, concrete, stark, industrial
+  | 'cursed'     // Nightmare fuel, uncanny valley, deliberately wrong
+  | 'void'       // Model collapse aesthetic, convergence, entropy
+  | 'signal'     // Glitch, datamosh, transmission decay, VHS
   | null;        // No theme selected
 
 export interface ThemeRemix {

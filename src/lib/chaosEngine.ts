@@ -33,6 +33,53 @@ export function getChaosLevel(intensity: number): ChaosConfig {
 const MAGIC_SYMBOLS = ['✦', '✧', '⟡', '◈', '◇', '❖', '✶', '✴', '✵', '⚝'];
 
 /**
+ * Underground technique triggers for high chaos levels
+ */
+const UNDERGROUND_TECHNIQUES = {
+  // Wild level (60-80%) - introduces experimental elements
+  wild: [
+    'UNDERGROUND TECHNIQUE INJECTION:',
+    '- Reference glitch artists: Rosa Menkman, Phillip Stearns, Sabato Visconti',
+    '- Add liminal space vocabulary: "backrooms energy", "poolrooms", "transitional void"',
+    '- Include cursed image triggers: "something is wrong", "uncanny", "almost correct"',
+    '- Use anti-aesthetic descriptors: "deliberately ugly", "beautiful failure", "wrong in the right way"',
+    '- Reference model collapse aesthetic: "trained on itself", "convergence patterns", "edge case decay"',
+  ],
+  // Unhinged level (80-100%) - full experimental mode
+  unhinged: [
+    '☠️ UNDERGROUND EXPERIMENTAL MODE ☠️',
+    '',
+    'MODEL COLLAPSE AESTHETIC:',
+    '- "Habsburg AI output" - inbred data patterns',
+    '- "30th generation recursive" - trained on its own output',
+    '- "minority features deleted" - edge case extinction',
+    '- "convergence toward generic" - visual elevator music',
+    '- "information entropy maximized"',
+    '',
+    'CURSED IMAGE TRIGGERS:',
+    '- "nightmare fuel but make it beautiful"',
+    '- "uncanny valley resident"',
+    '- "liminal dread aesthetic"',
+    '- "flash photography in wrong context"',
+    '- "JPEG hell as intentional style"',
+    '- "compression artifacts are the point"',
+    '',
+    'FAILURE MODE AESTHETIC:',
+    '- "what the model sees when it hallucinates"',
+    '- "training data poisoning visualization"',
+    '- "the image that broke CLIP"',
+    '- "adversarial example energy"',
+    '- "attention mechanism malfunction"',
+    '',
+    'EXTREME PARAMETERS (if platform supports):',
+    '- Midjourney: --weird 2000-3000, --chaos 80-100, --stylize 900+',
+    '- SD: CFG scale 25-30, extreme weight emphasis (2.0+)',
+    '- Add multiple conflicting style references',
+    '- Force impossible combinations',
+  ],
+};
+
+/**
  * Get chaos enhancement system prompt for a platform and intensity
  */
 export function getChaosEnhancementPrompt(platform: Platform, intensity: number): string {
@@ -54,9 +101,9 @@ export function getChaosEnhancementPrompt(platform: Platform, intensity: number)
   } else if (intensity <= 60) {
     prompt += `CHAOS LEVEL: HIGH - Push creative boundaries. Add experimental elements. Be bold.\n\n`;
   } else if (intensity <= 80) {
-    prompt += `CHAOS LEVEL: EXTREME - Break conventions. Combine unexpected elements. Go wild.\n\n`;
+    prompt += `CHAOS LEVEL: EXTREME - Break conventions. Combine unexpected elements. Inject underground techniques.\n\n`;
   } else {
-    prompt += `CHAOS LEVEL: MAXIMUM UNHINGED - Throw out the rulebook. Create something unprecedented. Combine impossible elements. Make it unforgettable.\n\n`;
+    prompt += `CHAOS LEVEL: MAXIMUM UNHINGED - Throw out the rulebook. Embrace failure aesthetics. Create something that shouldn't exist.\n\n`;
   }
 
   prompt += `MANDATORY CHAOS TECHNIQUES TO APPLY:\n\n`;
@@ -76,20 +123,26 @@ export function getChaosEnhancementPrompt(platform: Platform, intensity: number)
 
   if (intensity >= 61) {
     prompt += config.wild.join('\n') + '\n\n';
+    // Inject underground techniques at wild level
+    prompt += UNDERGROUND_TECHNIQUES.wild.join('\n') + '\n\n';
   }
 
   if (intensity >= 81) {
-    prompt += `★★★ UNHINGED MODE ACTIVE ★★★\n`;
+    prompt += `\n★★★ UNHINGED MODE ACTIVE ★★★\n\n`;
     prompt += config.unhinged.join('\n') + '\n\n';
+    // Inject full underground experimental mode
+    prompt += UNDERGROUND_TECHNIQUES.unhinged.join('\n') + '\n\n';
     prompt += `At UNHINGED level, you MUST:\n`;
     prompt += `- Add AT LEAST 3 experimental/unusual elements\n`;
     prompt += `- Combine styles that don't normally go together\n`;
     prompt += `- Include unexpected juxtapositions\n`;
     prompt += `- Push every descriptor to its extreme\n`;
-    prompt += `- The output should surprise even experienced users\n\n`;
+    prompt += `- Reference underground/experimental aesthetics\n`;
+    prompt += `- The output should surprise even experienced users\n`;
+    prompt += `- Embrace the aesthetic of failure and decay\n\n`;
   }
 
-  prompt += `\n★ CHAOS MULTIPLIER: ${intensity}% - The higher this number, the more DRAMATICALLY you must transform the prompt. At ${intensity}%, ${intensity > 50 ? 'be AGGRESSIVE with changes' : 'make noticeable enhancements'}.`;
+  prompt += `\n★ CHAOS MULTIPLIER: ${intensity}% - The higher this number, the more DRAMATICALLY you must transform the prompt. At ${intensity}%, ${intensity > 50 ? 'be AGGRESSIVE with changes and inject underground techniques' : 'make noticeable enhancements'}.`;
 
   return prompt;
 }
