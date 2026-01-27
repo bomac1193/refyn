@@ -1,3 +1,58 @@
+/* =====================================================
+   REFYN CSS ISOLATION LAYER
+   Prevents host page styles from affecting Refyn UI
+   ===================================================== */
+
+/* Master reset for ALL Refyn elements */
+#refyn-floating-panel,
+#refyn-floating-panel *,
+#refyn-like-feedback,
+#refyn-like-feedback *,
+#refyn-dislike-feedback,
+#refyn-dislike-feedback *,
+.refyn-rating-overlay,
+.refyn-rating-overlay *,
+.refyn-learning-toast,
+.refyn-learning-toast * {
+  all: revert !important;
+  box-sizing: border-box !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Re-establish base text styles */
+#refyn-floating-panel,
+#refyn-like-feedback,
+#refyn-dislike-feedback {
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  color: #FAFAFA !important;
+  text-align: left !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* Ensure buttons look correct */
+#refyn-floating-panel button,
+#refyn-like-feedback button,
+#refyn-dislike-feedback button {
+  font-family: inherit !important;
+  cursor: pointer !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* Ensure inputs look correct */
+#refyn-floating-panel input,
+#refyn-floating-panel textarea,
+#refyn-floating-panel select {
+  font-family: inherit !important;
+  font-size: inherit !important;
+}
+
+/* =====================================================
+   END CSS ISOLATION LAYER
+   ===================================================== */
+
 /* Refyn Floating Toolbar Styles */
 
 #refyn-toolbar {
@@ -168,10 +223,53 @@
   color: #F4F4F5;
 }
 
-#refyn-floating-panel * {
-  box-sizing: border-box;
+/* CSS Isolation - Reset ALL inherited styles to prevent host page conflicts */
+#refyn-floating-panel,
+#refyn-floating-panel *,
+#refyn-floating-panel *::before,
+#refyn-floating-panel *::after {
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: inherit !important;
+  font-weight: normal !important;
+  line-height: 1.4 !important;
+  text-align: left !important;
+  text-decoration: none !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  color: inherit !important;
+  background: transparent !important;
+  list-style: none !important;
+  vertical-align: baseline !important;
 }
 
+/* Re-apply Refyn base styles with !important for isolation */
+#refyn-floating-panel .refyn-panel-container {
+  width: 280px !important;
+  max-height: calc(100vh - 40px) !important;
+  background: rgba(10, 10, 12, 0.98) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 240, 255, 0.1),
+    0 0 30px rgba(0, 240, 255, 0.05) !important;
+  overflow: hidden !important;
+  transition: all 0.3s ease !important;
+  display: flex !important;
+  flex-direction: column !important;
+  font-size: 12px !important;
+  color: #FAFAFA !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Legacy class selector for backwards compatibility */
 .refyn-panel-container {
   width: 280px;
   max-height: calc(100vh - 40px);
