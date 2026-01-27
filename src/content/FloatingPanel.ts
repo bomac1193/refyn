@@ -6,6 +6,8 @@ import { getSuggestedKeywords, getKeywordsToAvoid, getSmartSuggestionContext } f
 import { getQuickQuality } from '@/lib/promptAnalyzer';
 
 let panel: HTMLElement | null = null;
+let shadowHost: HTMLElement | null = null;
+let shadowRoot: ShadowRoot | null = null;
 let isMinimized = false;
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
@@ -151,6 +153,54 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 const DEBOUNCE_DELAY = 150; // ms
 
 const PANEL_ID = 'refyn-floating-panel';
+const SHADOW_HOST_ID = 'refyn-shadow-host';
+
+/**
+ * Fetch the panel CSS from extension resources
+ */
+async function getPanelCSS(): Promise<string> {
+  // Try the built path first, then source path
+  const paths = ['content/content.css', 'src/content/content.css'];
+
+  for (const path of paths) {
+    try {
+      const cssUrl = chrome.runtime.getURL(path);
+      const response = await fetch(cssUrl);
+      if (response.ok) {
+        return await response.text();
+      }
+    } catch {
+      // Try next path
+    }
+  }
+
+  console.error('[Refyn] Failed to load panel CSS from any path');
+  return '';
+}
+
+/**
+ * Create Shadow DOM host with isolated styles
+ */
+async function createShadowHost(): Promise<{ host: HTMLElement; root: ShadowRoot }> {
+  const host = document.createElement('div');
+  host.id = SHADOW_HOST_ID;
+  host.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 2147483646;
+  `;
+
+  const root = host.attachShadow({ mode: 'open' });
+
+  // Inject CSS into shadow DOM
+  const css = await getPanelCSS();
+  const style = document.createElement('style');
+  style.textContent = css;
+  root.appendChild(style);
+
+  return { host, root };
+}
 
 /**
  * Strip --weird parameter from Midjourney prompts for moodboard compatibility
@@ -166,28 +216,29 @@ function stripWeirdParameter(prompt: string): string {
     .replace(/\s+/g, ' '); // Clean up any double spaces
 }
 
-export function createFloatingPanel(): void {
-  if (document.getElementById(PANEL_ID)) return;
+export async function createFloatingPanel(): Promise<void> {
+  // Check if already exists using shadow host
+  if (document.getElementById(SHADOW_HOST_ID)) return;
 
   currentPlatform = detectPlatform();
 
   // Only show on supported platforms
   if (currentPlatform === 'unknown') return;
 
+  // Create Shadow DOM host for CSS isolation
+  const { host, root } = await createShadowHost();
+  shadowHost = host;
+  shadowRoot = root;
+
+  // Create panel inside shadow root
   panel = document.createElement('div');
   panel.id = PANEL_ID;
+  panel.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
   panel.innerHTML = generatePanelHTML();
+  shadowRoot.appendChild(panel);
 
-  // Set initial position (bottom right)
-  panel.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 2147483646;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  `;
-
-  document.body.appendChild(panel);
+  // Add to document
+  document.body.appendChild(shadowHost);
 
   // Add event listeners
   setupEventListeners();
@@ -207,7 +258,7 @@ export function createFloatingPanel(): void {
     startLiveSync();
   }
 
-  console.log('[Refyn] Floating panel initialized for:', currentPlatform);
+  console.log('[Refyn] Floating panel initialized with Shadow DOM for:', currentPlatform);
 }
 
 // Smart suggestions section (populated dynamically)
@@ -1201,41 +1252,41 @@ function startDrag(e: MouseEvent): void {
   if ((e.target as HTMLElement).closest('.refyn-control-btn')) return;
 
   isDragging = true;
-  const rect = panel!.getBoundingClientRect();
+  const rect = shadowHost!.getBoundingClientRect();
   dragOffset = {
     x: e.clientX - rect.left,
     y: e.clientY - rect.top
   };
-  panel!.style.cursor = 'grabbing';
+  if (panel) panel.style.cursor = 'grabbing';
 }
 
 function onDrag(e: MouseEvent): void {
-  if (!isDragging || !panel) return;
+  if (!isDragging || !shadowHost) return;
 
   const x = e.clientX - dragOffset.x;
   const y = e.clientY - dragOffset.y;
 
   // Keep within viewport
-  const maxX = window.innerWidth - panel.offsetWidth;
-  const maxY = window.innerHeight - panel.offsetHeight;
+  const maxX = window.innerWidth - shadowHost.offsetWidth;
+  const maxY = window.innerHeight - shadowHost.offsetHeight;
 
-  panel.style.left = `${Math.max(0, Math.min(x, maxX))}px`;
-  panel.style.top = `${Math.max(0, Math.min(y, maxY))}px`;
-  panel.style.right = 'auto';
-  panel.style.bottom = 'auto';
+  shadowHost.style.left = `${Math.max(0, Math.min(x, maxX))}px`;
+  shadowHost.style.top = `${Math.max(0, Math.min(y, maxY))}px`;
+  shadowHost.style.right = 'auto';
+  shadowHost.style.bottom = 'auto';
 }
 
 function stopDrag(): void {
-  if (isDragging && panel) {
+  if (isDragging && shadowHost) {
     isDragging = false;
-    panel.style.cursor = '';
+    if (panel) panel.style.cursor = '';
     savePosition();
   }
 }
 
 function savePosition(): void {
-  if (!panel) return;
-  const rect = panel.getBoundingClientRect();
+  if (!shadowHost) return;
+  const rect = shadowHost.getBoundingClientRect();
   localStorage.setItem('refyn-panel-position', JSON.stringify({
     left: rect.left,
     top: rect.top
@@ -1245,12 +1296,12 @@ function savePosition(): void {
 function restorePosition(): void {
   try {
     const saved = localStorage.getItem('refyn-panel-position');
-    if (saved && panel) {
+    if (saved && shadowHost) {
       const pos = JSON.parse(saved);
-      panel.style.left = `${pos.left}px`;
-      panel.style.top = `${pos.top}px`;
-      panel.style.right = 'auto';
-      panel.style.bottom = 'auto';
+      shadowHost.style.left = `${pos.left}px`;
+      shadowHost.style.top = `${pos.top}px`;
+      shadowHost.style.right = 'auto';
+      shadowHost.style.bottom = 'auto';
     }
 
     // Restore live sync preference
@@ -2270,7 +2321,10 @@ function showToast(message: string, type: 'success' | 'error' = 'success'): void
 
 export function destroyFloatingPanel(): void {
   stopLiveSync();
-  panel?.remove();
+  // Remove the shadow host (which contains the panel)
+  shadowHost?.remove();
+  shadowHost = null;
+  shadowRoot = null;
   panel = null;
 }
 
@@ -2303,7 +2357,7 @@ export function toggleFloatingPanel(): void {
  * Force show floating panel even on unknown platforms
  * Used when user explicitly requests via popup button
  */
-export function forceShowFloatingPanel(): void {
+export async function forceShowFloatingPanel(): Promise<void> {
   localStorage.removeItem('refyn-panel-closed');
   localStorage.removeItem('refyn-panel-minimized');
   removeTriggerButton();
@@ -2320,19 +2374,21 @@ export function forceShowFloatingPanel(): void {
   const detectedPlatform = detectPlatform();
   currentPlatform = detectedPlatform === 'unknown' ? 'chatgpt' : detectedPlatform; // Default to chatgpt for unknown
 
+  // Create Shadow DOM host for CSS isolation
+  const { host, root } = await createShadowHost();
+  shadowHost = host;
+  shadowRoot = root;
+
+  // Create panel inside shadow root
   panel = document.createElement('div');
   panel.id = PANEL_ID;
+  panel.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
   panel.innerHTML = generatePanelHTML();
+  shadowRoot.appendChild(panel);
 
-  panel.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 2147483646;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  `;
+  // Add to document
+  document.body.appendChild(shadowHost);
 
-  document.body.appendChild(panel);
   setupEventListeners();
   restorePosition();
 
@@ -2340,7 +2396,7 @@ export function forceShowFloatingPanel(): void {
     startLiveSync();
   }
 
-  console.log('[Refyn] Floating panel force-initialized for:', currentPlatform);
+  console.log('[Refyn] Floating panel force-initialized with Shadow DOM for:', currentPlatform);
 }
 
 // =====================================================
