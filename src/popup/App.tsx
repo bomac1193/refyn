@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Star, History, ExternalLink, Download, Upload, RefreshCw, PanelRightOpen, User, Sparkles } from 'lucide-react';
+import { Star, History, ExternalLink, Download, Upload, RefreshCw, PanelRightOpen, User, Sparkles, Trophy, Flame } from 'lucide-react';
 import { Header } from './components/Header';
 import { PlatformSelector } from './components/PlatformSelector';
 import { PromptInput } from './components/PromptInput';
@@ -30,8 +30,29 @@ import { STORAGE_KEYS, PLATFORMS } from '@/shared/constants';
 import { getPresetsForCategory } from '@/shared/presets';
 import type { StylePreset } from '@/shared/types';
 import type { Platform, OptimizationMode, GenomeTag, PromptRecord, TasteProfile } from '@/shared/types';
+import {
+  getLeaderboardSummary,
+  migrateFromDeepLearning,
+  type TasteTier,
+  type Achievement,
+} from '@/lib/tasteGamification';
 
 type TabType = 'refyn' | 'history' | 'saved' | 'profile';
+
+interface GamificationData {
+  tier: TasteTier;
+  xp: number;
+  nextTierProgress: { current: number; needed: number; percent: number; nextTier: TasteTier | null };
+  stats: {
+    totalRatings: number;
+    currentStreak: number;
+    longestStreak: number;
+    artistsDiscovered: number;
+    achievementsUnlocked: number;
+    totalAchievements: number;
+  };
+  topAchievements: Achievement[];
+}
 
 interface DeepPreference {
   keyword: string;
@@ -77,6 +98,7 @@ const App: React.FC = () => {
   const [deepPreferences, setDeepPreferences] = useState<DeepPreference[]>([]);
   const [profileStats, setProfileStats] = useState({ refined: 0, saved: 0, liked: 0, disliked: 0 });
   const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
+  const [gamificationData, setGamificationData] = useState<GamificationData | null>(null);
 
   // Initialize
   useEffect(() => {
@@ -429,6 +451,21 @@ const App: React.FC = () => {
       const tasteResponse = await chrome.runtime.sendMessage({ type: 'GET_TASTE_PROFILE' });
       if (tasteResponse?.success && tasteResponse.data) {
         setTasteProfile(tasteResponse.data);
+      }
+
+      // Load gamification data
+      try {
+        // Migrate existing stats to gamification system (one-time)
+        const deepPrefsResponse2 = await chrome.runtime.sendMessage({ type: 'GET_DEEP_PREFERENCES' });
+        if (deepPrefsResponse2?.success && deepPrefsResponse2.data?.stats) {
+          await migrateFromDeepLearning(deepPrefsResponse2.data.stats);
+        }
+
+        // Get leaderboard summary
+        const leaderboardData = await getLeaderboardSummary();
+        setGamificationData(leaderboardData);
+      } catch (gamErr) {
+        console.error('[Refyn] Failed to load gamification:', gamErr);
       }
     } catch (error) {
       console.error('[Refyn] Failed to load profile:', error);
@@ -878,84 +915,121 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            {/* Taste Learning Progress */}
-            {(() => {
-              const totalFeedback = profileStats.liked + profileStats.disliked;
-              const targetBasic = 20;
-              const targetGood = 50;
-              const targetExcellent = 100;
-              const maxTarget = 150;
-
-              let level = 'Getting Started';
-              let levelColor = 'text-zinc-400';
-              let progressColor = 'bg-zinc-500';
-              let nextMilestone = targetBasic;
-              let progressPercent = Math.min((totalFeedback / maxTarget) * 100, 100);
-
-              if (totalFeedback >= targetExcellent) {
-                level = 'Excellent';
-                levelColor = 'text-green-400';
-                progressColor = 'bg-green-500';
-                nextMilestone = maxTarget;
-              } else if (totalFeedback >= targetGood) {
-                level = 'Good Understanding';
-                levelColor = 'text-refyn-cyan';
-                progressColor = 'bg-refyn-cyan';
-                nextMilestone = targetExcellent;
-              } else if (totalFeedback >= targetBasic) {
-                level = 'Learning';
-                levelColor = 'text-yellow-400';
-                progressColor = 'bg-yellow-500';
-                nextMilestone = targetGood;
-              }
-
-              return (
-                <div className="bg-refyn-active/20 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-zinc-400">Taste Recognition:</span>
-                      <span className={`text-xs font-medium ${levelColor}`}>{level}</span>
-                    </div>
-                    <span className="text-xs text-zinc-500">
-                      {totalFeedback}/{nextMilestone} ratings
-                    </span>
-                  </div>
-                  <div className="h-2 bg-refyn-active/50 rounded-full overflow-hidden">
+            {/* Gamified Tier & XP Progress */}
+            {gamificationData && (
+              <div className="bg-gradient-to-br from-refyn-active/30 to-refyn-active/10 rounded-lg p-4 space-y-3 border border-refyn-active/20">
+                {/* Tier Badge & XP */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
                     <div
-                      className={`h-full ${progressColor} transition-all duration-500`}
-                      style={{ width: `${progressPercent}%` }}
-                    />
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+                      style={{ backgroundColor: `${gamificationData.tier.color}20`, border: `2px solid ${gamificationData.tier.color}` }}
+                    >
+                      {gamificationData.tier.emoji}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold" style={{ color: gamificationData.tier.color }}>
+                          {gamificationData.tier.name}
+                        </span>
+                        {gamificationData.stats.currentStreak > 0 && (
+                          <span className="flex items-center gap-1 text-xs text-orange-400">
+                            <Flame className="w-3 h-3" />
+                            {gamificationData.stats.currentStreak}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-zinc-400">{gamificationData.tier.description}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-[10px] text-zinc-600">
-                    <span>0</span>
-                    <span className={totalFeedback >= targetBasic ? 'text-yellow-500' : ''}>20</span>
-                    <span className={totalFeedback >= targetGood ? 'text-refyn-cyan' : ''}>50</span>
-                    <span className={totalFeedback >= targetExcellent ? 'text-green-400' : ''}>100</span>
-                    <span>150+</span>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-refyn-cyan">{gamificationData.xp.toLocaleString()}</div>
+                    <div className="text-[10px] text-zinc-500 uppercase tracking-wider">XP</div>
                   </div>
-                  {totalFeedback < targetBasic && (
-                    <p className="text-[10px] text-zinc-500 text-center">
-                      Rate {targetBasic - totalFeedback} more images for basic taste recognition
-                    </p>
-                  )}
-                  {totalFeedback >= targetBasic && totalFeedback < targetGood && (
-                    <p className="text-[10px] text-zinc-500 text-center">
-                      Rate {targetGood - totalFeedback} more for improved suggestions
-                    </p>
-                  )}
-                  {totalFeedback >= targetGood && totalFeedback < targetExcellent && (
-                    <p className="text-[10px] text-zinc-500 text-center">
-                      Rate {targetExcellent - totalFeedback} more for excellent personalization
-                    </p>
-                  )}
-                  {totalFeedback >= targetExcellent && (
-                    <p className="text-[10px] text-green-400/70 text-center">
-                      Great job! Your taste profile is well-trained
-                    </p>
-                  )}
                 </div>
-              );
-            })()}
+
+                {/* Progress to Next Tier */}
+                {gamificationData.nextTierProgress.nextTier && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-zinc-400">Next: {gamificationData.nextTierProgress.nextTier.emoji} {gamificationData.nextTierProgress.nextTier.name}</span>
+                      <span className="text-zinc-500">{gamificationData.nextTierProgress.current}/{gamificationData.nextTierProgress.needed} XP</span>
+                    </div>
+                    <div className="h-2 bg-refyn-active/50 rounded-full overflow-hidden">
+                      <div
+                        className="h-full transition-all duration-500"
+                        style={{
+                          width: `${gamificationData.nextTierProgress.percent}%`,
+                          background: `linear-gradient(90deg, ${gamificationData.tier.color}, ${gamificationData.nextTierProgress.nextTier.color})`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Stats Row */}
+                <div className="grid grid-cols-4 gap-2 pt-2 border-t border-refyn-active/20">
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-zinc-200">{gamificationData.stats.totalRatings}</div>
+                    <div className="text-[10px] text-zinc-500">Ratings</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-orange-400">{gamificationData.stats.longestStreak}</div>
+                    <div className="text-[10px] text-zinc-500">Best Streak</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-purple-400">{gamificationData.stats.artistsDiscovered}</div>
+                    <div className="text-[10px] text-zinc-500">Artists</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-yellow-400">
+                      {gamificationData.stats.achievementsUnlocked}/{gamificationData.stats.totalAchievements}
+                    </div>
+                    <div className="text-[10px] text-zinc-500">Badges</div>
+                  </div>
+                </div>
+
+                {/* Top Achievements */}
+                {gamificationData.topAchievements.length > 0 && (
+                  <div className="pt-2 border-t border-refyn-active/20">
+                    <div className="flex items-center gap-1 mb-2">
+                      <Trophy className="w-3 h-3 text-yellow-400" />
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider">Top Achievements</span>
+                    </div>
+                    <div className="flex gap-2">
+                      {gamificationData.topAchievements.map((achievement) => (
+                        <div
+                          key={achievement.id}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px]"
+                          style={{
+                            backgroundColor: achievement.rarity === 'legendary' ? '#FFD70020' :
+                                           achievement.rarity === 'epic' ? '#8B5CF620' :
+                                           achievement.rarity === 'rare' ? '#3B82F620' :
+                                           achievement.rarity === 'uncommon' ? '#10B98120' : '#6B728020',
+                            borderWidth: 1,
+                            borderColor: achievement.rarity === 'legendary' ? '#FFD70040' :
+                                        achievement.rarity === 'epic' ? '#8B5CF640' :
+                                        achievement.rarity === 'rare' ? '#3B82F640' :
+                                        achievement.rarity === 'uncommon' ? '#10B98140' : '#6B728040',
+                          }}
+                          title={achievement.description}
+                        >
+                          <span>{achievement.emoji}</span>
+                          <span className="text-zinc-300">{achievement.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Fallback if no gamification data */}
+            {!gamificationData && (
+              <div className="bg-refyn-active/20 rounded-lg p-3 text-center">
+                <p className="text-xs text-zinc-400">Loading taste profile...</p>
+              </div>
+            )}
 
             {/* Stats Cards */}
             <div className="grid grid-cols-4 gap-2">

@@ -4,6 +4,7 @@
  */
 
 import type { Platform } from '@/shared/types';
+import { getArtistInjectionPrompt, getRandomArtists, formatArtistReference } from './artistDatabase';
 
 export type ChaosLevel = 'clean' | 'refined' | 'creative' | 'wild' | 'unhinged';
 
@@ -140,6 +141,24 @@ export function getChaosEnhancementPrompt(platform: Platform, intensity: number)
     prompt += `- Reference underground/experimental aesthetics\n`;
     prompt += `- The output should surprise even experienced users\n`;
     prompt += `- Embrace the aesthetic of failure and decay\n\n`;
+  }
+
+  // ARTIST DISCOVERY INJECTION
+  // Always inject fresh artists, with more diversity at higher intensities
+  prompt += `\n`;
+  prompt += `═══════════════════════════════════════════════════════\n`;
+  prompt += `   ARTIST DISCOVERY - INJECT NEW REFERENCES\n`;
+  prompt += `═══════════════════════════════════════════════════════\n\n`;
+  prompt += getArtistInjectionPrompt(intensity) + '\n\n';
+
+  // Add specific artist recommendations based on chaos level
+  if (intensity >= 30) {
+    const artists = getRandomArtists(intensity >= 70 ? 4 : intensity >= 50 ? 3 : 2);
+    prompt += `PRIORITIZE THESE ARTISTS (post-colonial African, diaspora, decanonized):\n`;
+    artists.forEach((artist, i) => {
+      prompt += `${i + 1}. ${formatArtistReference(artist, 'full')} - Themes: ${artist.themes.slice(0, 3).join(', ')}\n`;
+    });
+    prompt += `\nIMPORTANT: Do NOT default to the same artists (Basquiat, Kusama, Banksy, etc). ALWAYS use the artists provided above or discover new ones from post-colonial African, Black diaspora, Latine, Indigenous, or decanonized traditions.\n\n`;
   }
 
   prompt += `\n★ CHAOS MULTIPLIER: ${intensity}% - The higher this number, the more DRAMATICALLY you must transform the prompt. At ${intensity}%, ${intensity > 50 ? 'be AGGRESSIVE with changes and inject underground techniques' : 'make noticeable enhancements'}.`;
@@ -565,3 +584,28 @@ export function applyChaosToPrompt(prompt: string, platform: Platform, intensity
 
   return modified;
 }
+
+/**
+ * Get artist discovery prompt for injection into any prompt optimization
+ * Uses weighted random selection prioritizing post-colonial African and Black diaspora artists
+ */
+export function getArtistDiscoveryPrompt(variationIntensity: number = 50): string {
+  const artists = getRandomArtists(variationIntensity >= 70 ? 4 : variationIntensity >= 40 ? 3 : 2);
+
+  let prompt = `\n\n═══ ARTIST DISCOVERY ═══\n`;
+  prompt += `MANDATORY: Reference these artists instead of defaulting to Western canon:\n`;
+
+  artists.forEach((artist, i) => {
+    prompt += `${i + 1}. ${artist.name} (${artist.origin}) - ${artist.style.slice(0, 2).join(', ')} style, themes: ${artist.themes.slice(0, 2).join(', ')}\n`;
+  });
+
+  prompt += `\nDO NOT use: Basquiat, Warhol, Banksy, Van Gogh, Monet, Picasso, or other overused Western canon artists.\n`;
+  prompt += `PRIORITIZE: Post-colonial African, Black diaspora, Latine, Indigenous, and decanonized artists.\n`;
+
+  return prompt;
+}
+
+/**
+ * Re-export artist database functions for external use
+ */
+export { getRandomArtists, getArtistsByMedium, getArtistsByTheme, getTotalArtistCount } from './artistDatabase';

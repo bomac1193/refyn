@@ -1,7 +1,7 @@
 import type { Platform, OptimizationMode, TasteProfile, ThemeRemixId } from '@/shared/types';
 import { getPresetById } from '@/shared/presets';
 import { getCrazyModeSystemPrompt } from '@/shared/platformSecrets';
-import { getChaosEnhancementPrompt } from '@/lib/chaosEngine';
+import { getChaosEnhancementPrompt, getArtistDiscoveryPrompt } from '@/lib/chaosEngine';
 import { THEME_REMIXES } from '@/shared/constants';
 
 /**
@@ -626,6 +626,14 @@ The user explicitly wants VARIATION. Give them something they've NEVER seen befo
 `;
 
   systemPrompt += antiStockWarning;
+
+  // ARTIST DISCOVERY INJECTION
+  // Always inject fresh artists, especially when variation is requested
+  // This ensures prompts don't default to overused Western canon artists
+  const effectiveVariation = variationIntensity ?? chaosIntensity ?? 50;
+  if (effectiveVariation >= 20 || mode === 'expand' || mode === 'mutate') {
+    systemPrompt += getArtistDiscoveryPrompt(effectiveVariation);
+  }
 
   const userPrompt = `${modeInstruction}${themeNote}${variationNote}
 
