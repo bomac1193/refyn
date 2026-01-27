@@ -446,3 +446,367 @@ export const THEME_REMIX_IDS: Exclude<ThemeRemixId, null>[] = [
   'vaporwave',
   'brutalist',
 ];
+
+// =====================================================
+// CHAOS EFFECTS DATABASE
+// Research compiled from Discord/Reddit communities
+// Used by chaos intensity slider to add weird/experimental effects
+// =====================================================
+
+export interface ChaosEffect {
+  id: string;
+  name: string;
+  description: string;
+  keywords: string[];
+  parameters?: Record<string, string | number>;  // Platform-specific params like --weird 500
+  multiPromptModifier?: string;  // For :: syntax effects
+  negativePrompt?: string;  // Things to avoid for cleaner weird
+  platforms: Platform[];  // Which platforms support this
+  intensityRange: [number, number];  // Min-max chaos intensity this applies to (0-100)
+}
+
+export interface ChaosCategory {
+  id: string;
+  name: string;
+  description: string;
+  effects: ChaosEffect[];
+}
+
+// Chaos effects organized by category
+export const CHAOS_CATEGORIES: ChaosCategory[] = [
+  // ==========================================
+  // GLITCH & DIGITAL CORRUPTION
+  // ==========================================
+  {
+    id: 'glitch',
+    name: 'Glitch & Corruption',
+    description: 'Digital artifacts, data corruption, pixel manipulation',
+    effects: [
+      {
+        id: 'glitch-art',
+        name: 'Glitch Art',
+        description: 'Digital glitches and visual errors as aesthetic',
+        keywords: ['glitch art', 'data corruption', 'pixel sorting', 'chromatic aberration', 'scan lines', 'VHS glitch'],
+        parameters: { weird: 500, stylize: 250 },
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo', 'dalle'],
+        intensityRange: [30, 70],
+      },
+      {
+        id: 'datamosh',
+        name: 'Datamosh',
+        description: 'Video compression artifacts, macro blocks, smearing',
+        keywords: ['datamosh', 'compression artifacts', 'macro blocks', 'pixel smear', 'digital decay', 'corrupted video'],
+        parameters: { weird: 750 },
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo'],
+        intensityRange: [50, 85],
+      },
+      {
+        id: 'deep-fried',
+        name: 'Deep Fried',
+        description: 'Over-processed, JPEG artifacts, extreme saturation',
+        keywords: ['deep fried', 'jpeg artifacts', 'oversaturated', 'nuked', 'crusty', 'low quality aesthetic'],
+        parameters: { weird: 1000, chaos: 50 },
+        platforms: ['midjourney', 'stable-diffusion', 'dalle'],
+        intensityRange: [60, 100],
+      },
+      {
+        id: 'signal-noise',
+        name: 'Signal Noise',
+        description: 'Static, interference patterns, broadcast errors',
+        keywords: ['static noise', 'TV static', 'signal interference', 'broadcast glitch', 'analog noise', 'white noise'],
+        parameters: { weird: 400 },
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo'],
+        intensityRange: [20, 60],
+      },
+    ],
+  },
+
+  // ==========================================
+  // SURREAL & DREAMLIKE
+  // ==========================================
+  {
+    id: 'surreal',
+    name: 'Surreal & Dreamlike',
+    description: 'Dream logic, impossible physics, unconscious imagery',
+    effects: [
+      {
+        id: 'double-exposure',
+        name: 'Double Exposure',
+        description: 'Layered imagery, silhouette fills, merged subjects',
+        keywords: ['double exposure', 'multiple exposure', 'silhouette overlay', 'layered imagery', 'transparent overlay'],
+        parameters: { stylize: 500 },
+        multiPromptModifier: '::0.7',  // Blend ratio
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo', 'dalle'],
+        intensityRange: [15, 50],
+      },
+      {
+        id: 'liminal-space',
+        name: 'Liminal Space',
+        description: 'Uncanny empty spaces, transitional areas, backrooms',
+        keywords: ['liminal space', 'backrooms', 'empty mall', 'abandoned', 'uncanny valley', 'transitional space', 'poolrooms'],
+        parameters: { weird: 600, stylize: 300 },
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo', 'dalle'],
+        intensityRange: [35, 75],
+      },
+      {
+        id: 'fever-dream',
+        name: 'Fever Dream',
+        description: 'Delirious imagery, impossible logic, nightmare fuel',
+        keywords: ['fever dream', 'nightmare fuel', 'delirious', 'hallucinatory', 'surreal nightmare', 'dream logic'],
+        parameters: { weird: 1500, chaos: 75 },
+        platforms: ['midjourney', 'stable-diffusion'],
+        intensityRange: [65, 100],
+      },
+      {
+        id: 'impossible-geometry',
+        name: 'Impossible Geometry',
+        description: 'Escher-like, non-Euclidean, paradoxical spaces',
+        keywords: ['impossible geometry', 'non-euclidean', 'Escher', 'paradox', 'infinite loop', 'recursive', 'tesseract'],
+        parameters: { weird: 800, stylize: 400 },
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo'],
+        intensityRange: [45, 85],
+      },
+    ],
+  },
+
+  // ==========================================
+  // HORROR & UNSETTLING
+  // ==========================================
+  {
+    id: 'horror',
+    name: 'Horror & Unsettling',
+    description: 'Creepy, cosmic horror, body horror, uncanny',
+    effects: [
+      {
+        id: 'cosmic-horror',
+        name: 'Cosmic Horror',
+        description: 'Lovecraftian, eldritch, incomprehensible entities',
+        keywords: ['cosmic horror', 'Lovecraftian', 'eldritch', 'Cthulhu', 'tentacles', 'incomprehensible', 'existential dread', 'void'],
+        parameters: { weird: 1200, stylize: 500 },
+        negativePrompt: 'cute, friendly, cartoonish',
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo'],
+        intensityRange: [55, 95],
+      },
+      {
+        id: 'body-horror',
+        name: 'Body Horror',
+        description: 'Anatomical distortion, mutation, flesh manipulation',
+        keywords: ['body horror', 'mutation', 'distorted anatomy', 'flesh', 'biomechanical', 'Cronenberg', 'grotesque'],
+        parameters: { weird: 1000, chaos: 60 },
+        negativePrompt: 'normal anatomy, clean, pristine',
+        platforms: ['midjourney', 'stable-diffusion'],
+        intensityRange: [60, 100],
+      },
+      {
+        id: 'uncanny-faces',
+        name: 'Uncanny Faces',
+        description: 'Almost-human faces, wrong proportions, unsettling',
+        keywords: ['uncanny valley', 'wrong face', 'distorted features', 'too many eyes', 'melting face', 'merged faces'],
+        parameters: { weird: 700 },
+        platforms: ['midjourney', 'stable-diffusion', 'dalle'],
+        intensityRange: [40, 80],
+      },
+      {
+        id: 'cursed-image',
+        name: 'Cursed Image',
+        description: 'Inexplicably wrong, uncomfortable, meme horror',
+        keywords: ['cursed image', 'cursed photo', 'blursed', 'uncomfortable', 'something wrong', 'ominous'],
+        parameters: { weird: 900, chaos: 50 },
+        platforms: ['midjourney', 'stable-diffusion', 'dalle'],
+        intensityRange: [50, 90],
+      },
+    ],
+  },
+
+  // ==========================================
+  // VISUAL EFFECTS & TECHNIQUES
+  // ==========================================
+  {
+    id: 'effects',
+    name: 'Visual Effects',
+    description: 'Specific visual techniques and camera effects',
+    effects: [
+      {
+        id: 'broken-glass',
+        name: 'Broken Glass',
+        description: 'Shattered glass overlay, fragmented reflections',
+        keywords: ['broken glass', 'shattered', 'glass shards', 'fractured', 'cracked glass', 'glass explosion'],
+        parameters: { stylize: 400 },
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo', 'dalle'],
+        intensityRange: [25, 60],
+      },
+      {
+        id: 'motion-blur',
+        name: 'Extreme Motion',
+        description: 'Speed blur, motion trails, kinetic energy',
+        keywords: ['motion blur', 'speed lines', 'motion trails', 'kinetic', 'blur streaks', 'fast movement'],
+        parameters: { weird: 300 },
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo', 'dalle'],
+        intensityRange: [20, 55],
+      },
+      {
+        id: 'kaleidoscope',
+        name: 'Kaleidoscope',
+        description: 'Symmetrical reflections, mandala patterns',
+        keywords: ['kaleidoscope', 'mandala', 'symmetrical', 'mirrored', 'radial symmetry', 'fractal pattern'],
+        parameters: { weird: 500, stylize: 600 },
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo'],
+        intensityRange: [30, 70],
+      },
+      {
+        id: 'tilt-shift',
+        name: 'Miniature/Macro',
+        description: 'Tilt-shift, miniature effect, extreme macro',
+        keywords: ['tilt shift', 'miniature', 'diorama', 'macro photography', 'tiny world', 'selective focus'],
+        parameters: { stylize: 350 },
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo', 'dalle'],
+        intensityRange: [10, 40],
+      },
+    ],
+  },
+
+  // ==========================================
+  // STYLE MUTATIONS
+  // ==========================================
+  {
+    id: 'mutations',
+    name: 'Style Mutations',
+    description: 'Unexpected style combinations and transformations',
+    effects: [
+      {
+        id: 'style-bleed',
+        name: 'Style Bleed',
+        description: 'Multiple conflicting art styles merging',
+        keywords: ['mixed media', 'style clash', 'art collision', 'genre mashup', 'aesthetic conflict'],
+        parameters: { weird: 600, chaos: 70 },
+        multiPromptModifier: '::1.3',
+        platforms: ['midjourney', 'stable-diffusion'],
+        intensityRange: [40, 80],
+      },
+      {
+        id: 'time-warp',
+        name: 'Time Warp',
+        description: 'Anachronistic elements, time periods colliding',
+        keywords: ['anachronistic', 'time warp', 'past meets future', 'retro-futurism', 'temporal collision'],
+        parameters: { weird: 500, stylize: 450 },
+        platforms: ['midjourney', 'stable-diffusion', 'leonardo', 'dalle'],
+        intensityRange: [35, 75],
+      },
+      {
+        id: 'anti-aesthetic',
+        name: 'Anti-Aesthetic',
+        description: 'Deliberately ugly, anti-art, brutalist visuals',
+        keywords: ['anti-aesthetic', 'deliberately ugly', 'brutal', 'raw', 'unrefined', 'harsh', 'anti-art'],
+        parameters: { weird: 1500, stylize: 0 },
+        platforms: ['midjourney', 'stable-diffusion'],
+        intensityRange: [70, 100],
+      },
+      {
+        id: 'niji-chaos',
+        name: 'Anime Chaos',
+        description: 'Surreal anime, experimental Japanese aesthetics',
+        keywords: ['surreal anime', 'experimental manga', 'psychedelic anime', 'abstract anime', 'deconstructed anime'],
+        parameters: { weird: 800 },
+        platforms: ['midjourney'],  // Niji mode specific
+        intensityRange: [45, 85],
+      },
+    ],
+  },
+];
+
+// ==========================================
+// MIDJOURNEY-SPECIFIC PARAMETERS BY CHAOS LEVEL
+// ==========================================
+export const MIDJOURNEY_CHAOS_PARAMS: Record<string, { weird: number; chaos: number; stylize: number }> = {
+  // Level names match UI labels
+  clean: { weird: 0, chaos: 0, stylize: 100 },       // 0-10%
+  subtle: { weird: 100, chaos: 10, stylize: 150 },   // 10-25%
+  mild: { weird: 250, chaos: 25, stylize: 200 },     // 25-40%
+  moderate: { weird: 500, chaos: 40, stylize: 300 }, // 40-55%
+  spicy: { weird: 750, chaos: 60, stylize: 400 },    // 55-70%
+  wild: { weird: 1000, chaos: 75, stylize: 500 },    // 70-85%
+  unhinged: { weird: 1500, chaos: 90, stylize: 750 },// 85-95%
+  maximum: { weird: 3000, chaos: 100, stylize: 1000 },// 95-100%
+};
+
+// ==========================================
+// WEIRD TRIGGER KEYWORDS BY INTENSITY
+// These get randomly injected based on chaos slider
+// ==========================================
+export const CHAOS_KEYWORDS: Record<string, string[]> = {
+  // Low chaos (10-30%): Subtle artistic touches
+  low: [
+    'ethereal', 'dreamlike', 'soft focus', 'hazy', 'atmospheric',
+    'mysterious', 'moody lighting', 'dramatic shadows', 'cinematic',
+    'painterly', 'impressionistic', 'soft glow', 'luminous',
+  ],
+
+  // Medium chaos (30-60%): Noticeable experimental elements
+  medium: [
+    'surreal', 'double exposure', 'kaleidoscopic', 'fragmented',
+    'distorted perspective', 'impossible architecture', 'floating elements',
+    'melting', 'morphing', 'twisted', 'warped reality', 'optical illusion',
+    'mirrored', 'inverted colors', 'chromatic aberration', 'lens distortion',
+  ],
+
+  // High chaos (60-85%): Strong experimental/weird effects
+  high: [
+    'glitch art', 'data corruption', 'pixel sorting', 'scan lines',
+    'liminal space', 'uncanny valley', 'cosmic horror', 'eldritch',
+    'bio-mechanical', 'flesh machinery', 'recursive nightmare',
+    'non-euclidean', 'fever dream', 'hallucination', 'psychedelic breakdown',
+    'datamosh', 'visual static', 'signal decay',
+  ],
+
+  // Maximum chaos (85-100%): Full experimental mode
+  extreme: [
+    'cursed image', 'nightmare fuel', 'reality collapse', 'dimensional rift',
+    'anti-aesthetic', 'deliberately broken', 'wrong in every way',
+    'incomprehensible', 'existential dread visualization', 'void entity',
+    'impossible biology', 'physics violation', 'perception error',
+    'memory corruption', 'dream within dream', 'ego death aesthetic',
+    'deep fried reality', 'jpeg hell', 'compression nightmare',
+  ],
+};
+
+// ==========================================
+// MULTI-PROMPT CHAOS TECHNIQUES
+// Uses :: syntax for Midjourney
+// ==========================================
+export const CHAOS_MULTIPROMPT_TECHNIQUES = [
+  {
+    name: 'Concept Collision',
+    description: 'Force unrelated concepts together',
+    template: '{subject}::1.5 {random_concept}::0.5',
+    intensityRange: [40, 70] as [number, number],
+  },
+  {
+    name: 'Style War',
+    description: 'Conflicting artistic styles',
+    template: '{subject}::1 {style_a}::0.8 {style_b}::-0.3',
+    intensityRange: [50, 80] as [number, number],
+  },
+  {
+    name: 'Negative Amplification',
+    description: 'Use negative weights creatively',
+    template: '{subject}::2 normal::-1 expected::-0.5',
+    intensityRange: [60, 90] as [number, number],
+  },
+  {
+    name: 'Reality Blend',
+    description: 'Mix real and impossible',
+    template: '{subject}::1.2 photorealistic::0.5 impossible physics::0.8',
+    intensityRange: [45, 75] as [number, number],
+  },
+];
+
+// ==========================================
+// ARTIST REFERENCES FOR WEIRD/EXPERIMENTAL
+// ==========================================
+export const CHAOS_ARTIST_REFERENCES = {
+  glitch: ['Rosa Menkman', 'Phillip Stearns', 'Sabato Visconti', 'Daniel Temkin'],
+  surreal: ['Salvador Dali', 'Rene Magritte', 'Zdzislaw Beksinski', 'HR Giger'],
+  horror: ['Junji Ito', 'Kentaro Miura', 'Francis Bacon', 'Wayne Barlowe'],
+  psychedelic: ['Alex Grey', 'Android Jones', 'Robert Venosa', 'Mati Klarwein'],
+  experimental: ['Yayoi Kusama', 'Anish Kapoor', 'James Turrell', 'Olafur Eliasson'],
+};
