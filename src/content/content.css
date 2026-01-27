@@ -3180,6 +3180,180 @@
 }
 
 /* =====================================================
+   TASTE INTELLIGENCE STYLES
+   ===================================================== */
+
+.refyn-intel-header {
+  margin-bottom: 10px;
+}
+
+.refyn-intel-level {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.refyn-intel-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.refyn-intel-clarity {
+  font-size: 11px;
+  font-weight: 600;
+  color: #00F0FF;
+}
+
+.refyn-intel-desc {
+  font-size: 10px;
+  color: #71717A;
+}
+
+.refyn-intel-progress {
+  margin-bottom: 10px;
+}
+
+.refyn-intel-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #71717A;
+  margin-bottom: 4px;
+}
+
+.refyn-intel-progress-bar {
+  height: 6px;
+  background: rgba(63, 63, 70, 0.5);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.refyn-intel-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.refyn-intel-capabilities {
+  margin-bottom: 10px;
+}
+
+.refyn-intel-section-label {
+  display: block;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #71717A;
+  margin-bottom: 6px;
+}
+
+.refyn-intel-caps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.refyn-intel-cap {
+  display: inline-flex;
+  padding: 2px 6px;
+  font-size: 9px;
+  background: rgba(0, 240, 255, 0.1);
+  color: #00F0FF;
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 10px;
+}
+
+.refyn-intel-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  margin-bottom: 10px;
+  border-top: 1px solid rgba(63, 63, 70, 0.3);
+  border-bottom: 1px solid rgba(63, 63, 70, 0.3);
+}
+
+.refyn-intel-stat {
+  flex: 1;
+  text-align: center;
+}
+
+.refyn-intel-stat-value {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #FAFAFA;
+  font-variant-numeric: tabular-nums;
+}
+
+.refyn-intel-stat-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #71717A;
+}
+
+.refyn-intel-stat.refyn-stat-positive .refyn-intel-stat-value {
+  color: #22c55e;
+}
+
+.refyn-intel-stat.refyn-stat-negative .refyn-intel-stat-value {
+  color: #ef4444;
+}
+
+.refyn-intel-insights {
+  margin-top: 6px;
+}
+
+.refyn-intel-insight {
+  padding: 8px;
+  margin-bottom: 6px;
+  background: rgba(39, 39, 42, 0.5);
+  border-radius: 6px;
+  border-left: 2px solid #71717A;
+}
+
+.refyn-intel-insight.refyn-insight-strength {
+  border-left-color: #22c55e;
+}
+
+.refyn-intel-insight.refyn-insight-discovery {
+  border-left-color: #8B5CF6;
+}
+
+.refyn-intel-insight.refyn-insight-gap {
+  border-left-color: #f59e0b;
+}
+
+.refyn-intel-insight.refyn-insight-suggestion {
+  border-left-color: #00F0FF;
+}
+
+.refyn-intel-insight-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: #FAFAFA;
+  margin-bottom: 2px;
+}
+
+.refyn-intel-insight-desc {
+  font-size: 9px;
+  color: #A1A1AA;
+  line-height: 1.4;
+}
+
+.refyn-intel-insight-action {
+  font-size: 9px;
+  color: #00F0FF;
+  margin-top: 4px;
+}
+
+/* =====================================================
    IMPORT HISTORY SECTION STYLES
    ===================================================== */
 

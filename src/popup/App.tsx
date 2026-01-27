@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Star, History, ExternalLink, Download, Upload, RefreshCw, PanelRightOpen, User, Sparkles, Trophy, Flame } from 'lucide-react';
+import { Star, History, ExternalLink, Download, Upload, RefreshCw, PanelRightOpen, User, Sparkles } from 'lucide-react';
 import { Header } from './components/Header';
 import { PlatformSelector } from './components/PlatformSelector';
 import { PromptInput } from './components/PromptInput';
@@ -31,28 +31,12 @@ import { getPresetsForCategory } from '@/shared/presets';
 import type { StylePreset } from '@/shared/types';
 import type { Platform, OptimizationMode, GenomeTag, PromptRecord, TasteProfile } from '@/shared/types';
 import {
-  getLeaderboardSummary,
-  migrateFromDeepLearning,
-  type TasteTier,
-  type Achievement,
-} from '@/lib/tasteGamification';
+  getTasteSummary,
+  migrateFromExistingStats,
+  type TasteSummary,
+} from '@/lib/tasteIntelligence';
 
 type TabType = 'refyn' | 'history' | 'saved' | 'profile';
-
-interface GamificationData {
-  tier: TasteTier;
-  xp: number;
-  nextTierProgress: { current: number; needed: number; percent: number; nextTier: TasteTier | null };
-  stats: {
-    totalRatings: number;
-    currentStreak: number;
-    longestStreak: number;
-    artistsDiscovered: number;
-    achievementsUnlocked: number;
-    totalAchievements: number;
-  };
-  topAchievements: Achievement[];
-}
 
 interface DeepPreference {
   keyword: string;
@@ -98,7 +82,7 @@ const App: React.FC = () => {
   const [deepPreferences, setDeepPreferences] = useState<DeepPreference[]>([]);
   const [profileStats, setProfileStats] = useState({ refined: 0, saved: 0, liked: 0, disliked: 0 });
   const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
-  const [gamificationData, setGamificationData] = useState<GamificationData | null>(null);
+  const [tasteIntelData, setTasteIntelData] = useState<TasteSummary | null>(null);
 
   // Initialize
   useEffect(() => {
@@ -453,19 +437,19 @@ const App: React.FC = () => {
         setTasteProfile(tasteResponse.data);
       }
 
-      // Load gamification data
+      // Load taste intelligence data
       try {
-        // Migrate existing stats to gamification system (one-time)
+        // Migrate existing stats to intelligence system (one-time)
         const deepPrefsResponse2 = await chrome.runtime.sendMessage({ type: 'GET_DEEP_PREFERENCES' });
         if (deepPrefsResponse2?.success && deepPrefsResponse2.data?.stats) {
-          await migrateFromDeepLearning(deepPrefsResponse2.data.stats);
+          await migrateFromExistingStats(deepPrefsResponse2.data.stats);
         }
 
-        // Get leaderboard summary
-        const leaderboardData = await getLeaderboardSummary();
-        setGamificationData(leaderboardData);
-      } catch (gamErr) {
-        console.error('[Refyn] Failed to load gamification:', gamErr);
+        // Get taste summary
+        const tasteSummary = await getTasteSummary();
+        setTasteIntelData(tasteSummary);
+      } catch (intelErr) {
+        console.error('[Refyn] Failed to load taste intelligence:', intelErr);
       }
     } catch (error) {
       console.error('[Refyn] Failed to load profile:', error);
@@ -915,107 +899,107 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            {/* Gamified Tier & XP Progress */}
-            {gamificationData && (
+            {/* Taste Intelligence Overview */}
+            {tasteIntelData && (
               <div className="bg-gradient-to-br from-refyn-active/30 to-refyn-active/10 rounded-lg p-4 space-y-3 border border-refyn-active/20">
-                {/* Tier Badge & XP */}
+                {/* Intelligence Level & Clarity */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                      style={{ backgroundColor: `${gamificationData.tier.color}20`, border: `2px solid ${gamificationData.tier.color}` }}
+                      className="w-12 h-12 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: `${tasteIntelData.level.color}20`, border: `2px solid ${tasteIntelData.level.color}` }}
                     >
-                      {gamificationData.tier.emoji}
+                      <div className="text-lg font-bold" style={{ color: tasteIntelData.level.color }}>
+                        {tasteIntelData.clarity}
+                      </div>
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold" style={{ color: gamificationData.tier.color }}>
-                          {gamificationData.tier.name}
+                        <span className="text-sm font-bold" style={{ color: tasteIntelData.level.color }}>
+                          {tasteIntelData.level.name}
                         </span>
-                        {gamificationData.stats.currentStreak > 0 && (
-                          <span className="flex items-center gap-1 text-xs text-orange-400">
-                            <Flame className="w-3 h-3" />
-                            {gamificationData.stats.currentStreak}
-                          </span>
-                        )}
                       </div>
-                      <span className="text-xs text-zinc-400">{gamificationData.tier.description}</span>
+                      <span className="text-xs text-zinc-400">{tasteIntelData.level.description}</span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold text-refyn-cyan">{gamificationData.xp.toLocaleString()}</div>
-                    <div className="text-[10px] text-zinc-500 uppercase tracking-wider">XP</div>
+                    <div className="text-xs text-zinc-500 uppercase tracking-wider">Clarity</div>
+                    <div className="text-lg font-bold text-refyn-cyan">{tasteIntelData.clarity}%</div>
                   </div>
                 </div>
 
-                {/* Progress to Next Tier */}
-                {gamificationData.nextTierProgress.nextTier && (
+                {/* Progress to Next Level */}
+                {tasteIntelData.nextCapability && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-zinc-400">Next: {gamificationData.nextTierProgress.nextTier.emoji} {gamificationData.nextTierProgress.nextTier.name}</span>
-                      <span className="text-zinc-500">{gamificationData.nextTierProgress.current}/{gamificationData.nextTierProgress.needed} XP</span>
+                      <span className="text-zinc-400">Next unlock: {tasteIntelData.nextCapability}</span>
+                      <span className="text-zinc-500">{tasteIntelData.progressToNext}%</span>
                     </div>
                     <div className="h-2 bg-refyn-active/50 rounded-full overflow-hidden">
                       <div
                         className="h-full transition-all duration-500"
                         style={{
-                          width: `${gamificationData.nextTierProgress.percent}%`,
-                          background: `linear-gradient(90deg, ${gamificationData.tier.color}, ${gamificationData.nextTierProgress.nextTier.color})`,
+                          width: `${tasteIntelData.progressToNext}%`,
+                          backgroundColor: tasteIntelData.level.color,
                         }}
                       />
                     </div>
                   </div>
                 )}
 
-                {/* Quick Stats Row */}
-                <div className="grid grid-cols-4 gap-2 pt-2 border-t border-refyn-active/20">
-                  <div className="text-center">
-                    <div className="text-sm font-bold text-zinc-200">{gamificationData.stats.totalRatings}</div>
-                    <div className="text-[10px] text-zinc-500">Ratings</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-bold text-orange-400">{gamificationData.stats.longestStreak}</div>
-                    <div className="text-[10px] text-zinc-500">Best Streak</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-bold text-purple-400">{gamificationData.stats.artistsDiscovered}</div>
-                    <div className="text-[10px] text-zinc-500">Artists</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-bold text-yellow-400">
-                      {gamificationData.stats.achievementsUnlocked}/{gamificationData.stats.totalAchievements}
-                    </div>
-                    <div className="text-[10px] text-zinc-500">Badges</div>
+                {/* Current Capabilities */}
+                <div className="space-y-1.5 pt-2 border-t border-refyn-active/20">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Active Capabilities</span>
+                  <div className="flex flex-wrap gap-1">
+                    {tasteIntelData.capabilities.map((cap, i) => (
+                      <span
+                        key={i}
+                        className="px-2 py-0.5 text-[10px] rounded-full bg-refyn-cyan/10 text-refyn-cyan border border-refyn-cyan/20"
+                      >
+                        {cap}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
-                {/* Top Achievements */}
-                {gamificationData.topAchievements.length > 0 && (
+                {/* Quick Stats Row */}
+                <div className="grid grid-cols-4 gap-2 pt-2 border-t border-refyn-active/20">
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-zinc-200">{tasteIntelData.activity.total}</div>
+                    <div className="text-[10px] text-zinc-500">Signals</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-green-400">{tasteIntelData.activity.likes}</div>
+                    <div className="text-[10px] text-zinc-500">Likes</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-red-400">{tasteIntelData.activity.dislikes}</div>
+                    <div className="text-[10px] text-zinc-500">Dislikes</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-purple-400">{tasteIntelData.discovery.styles}</div>
+                    <div className="text-[10px] text-zinc-500">Styles</div>
+                  </div>
+                </div>
+
+                {/* Insights */}
+                {tasteIntelData.insights.length > 0 && (
                   <div className="pt-2 border-t border-refyn-active/20">
                     <div className="flex items-center gap-1 mb-2">
-                      <Trophy className="w-3 h-3 text-yellow-400" />
-                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider">Top Achievements</span>
+                      <Sparkles className="w-3 h-3 text-refyn-cyan" />
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider">Insights</span>
                     </div>
-                    <div className="flex gap-2">
-                      {gamificationData.topAchievements.map((achievement) => (
+                    <div className="space-y-1.5">
+                      {tasteIntelData.insights.map((insight, i) => (
                         <div
-                          key={achievement.id}
-                          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px]"
-                          style={{
-                            backgroundColor: achievement.rarity === 'legendary' ? '#FFD70020' :
-                                           achievement.rarity === 'epic' ? '#8B5CF620' :
-                                           achievement.rarity === 'rare' ? '#3B82F620' :
-                                           achievement.rarity === 'uncommon' ? '#10B98120' : '#6B728020',
-                            borderWidth: 1,
-                            borderColor: achievement.rarity === 'legendary' ? '#FFD70040' :
-                                        achievement.rarity === 'epic' ? '#8B5CF640' :
-                                        achievement.rarity === 'rare' ? '#3B82F640' :
-                                        achievement.rarity === 'uncommon' ? '#10B98140' : '#6B728040',
-                          }}
-                          title={achievement.description}
+                          key={i}
+                          className="p-2 rounded bg-refyn-active/30 text-[11px]"
                         >
-                          <span>{achievement.emoji}</span>
-                          <span className="text-zinc-300">{achievement.name}</span>
+                          <div className="font-medium text-zinc-200">{insight.title}</div>
+                          <div className="text-zinc-400 mt-0.5">{insight.description}</div>
+                          {insight.actionable && (
+                            <div className="text-refyn-cyan mt-1 text-[10px]">{insight.actionable}</div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1024,10 +1008,10 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Fallback if no gamification data */}
-            {!gamificationData && (
+            {/* Fallback if no taste intelligence data */}
+            {!tasteIntelData && (
               <div className="bg-refyn-active/20 rounded-lg p-3 text-center">
-                <p className="text-xs text-zinc-400">Loading taste profile...</p>
+                <p className="text-xs text-zinc-400">Loading taste intelligence...</p>
               </div>
             )}
 

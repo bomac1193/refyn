@@ -4,6 +4,7 @@ import { PLATFORMS, THEME_REMIXES, THEME_REMIX_IDS } from '@/shared/constants';
 import { recordFeedback, getPreferenceContext } from '@/lib/preferences';
 import { getSuggestedKeywords, getKeywordsToAvoid, getSmartSuggestionContext } from '@/lib/deepLearning';
 import { getQuickQuality } from '@/lib/promptAnalyzer';
+import { getTasteSummary, migrateFromExistingStats, type TasteSummary } from '@/lib/tasteIntelligence';
 
 let panel: HTMLElement | null = null;
 let shadowHost: HTMLElement | null = null;
@@ -2142,84 +2143,98 @@ async function loadProfile(): Promise<void> {
 }
 
 /**
- * Render the taste learning progress bar
+ * Render the taste intelligence display
  */
-function renderTasteProgress(prefs: { stats?: { totalLikes?: number; totalDislikes?: number; totalDeletes?: number } }): void {
+async function renderTasteProgress(prefs: { stats?: { totalLikes?: number; totalDislikes?: number; totalDeletes?: number } }): Promise<void> {
   const progressContainer = panel?.querySelector('#refyn-taste-progress');
   if (!progressContainer) return;
 
-  const totalLikes = prefs.stats?.totalLikes || 0;
-  const totalDislikes = (prefs.stats?.totalDislikes || 0) + (prefs.stats?.totalDeletes || 0);
-  const totalFeedback = totalLikes + totalDislikes;
-
-  // Milestones
-  const targetBasic = 20;
-  const targetGood = 50;
-  const targetExcellent = 100;
-  const maxTarget = 150;
-
-  // Determine level
-  let level = 'Getting Started';
-  let levelColor = '#71717a'; // zinc-500
-  let progressColor = '#71717a';
-  let nextMilestone = targetBasic;
-
-  if (totalFeedback >= targetExcellent) {
-    level = 'Excellent';
-    levelColor = '#22c55e'; // green-500
-    progressColor = '#22c55e';
-    nextMilestone = maxTarget;
-  } else if (totalFeedback >= targetGood) {
-    level = 'Good Understanding';
-    levelColor = '#3b82f6'; // blue-500
-    progressColor = '#3b82f6';
-    nextMilestone = targetExcellent;
-  } else if (totalFeedback >= targetBasic) {
-    level = 'Learning';
-    levelColor = '#f59e0b'; // amber-500
-    progressColor = '#f59e0b';
-    nextMilestone = targetGood;
+  // Migrate existing stats if needed
+  if (prefs.stats) {
+    await migrateFromExistingStats(prefs.stats);
   }
 
-  const progressPercent = Math.min(100, (totalFeedback / nextMilestone) * 100);
-
-  // Encouraging text
-  let encourageText = '';
-  if (totalFeedback < targetBasic) {
-    encourageText = `Rate ${targetBasic - totalFeedback} more outputs to unlock personalized suggestions`;
-  } else if (totalFeedback < targetGood) {
-    encourageText = `${targetGood - totalFeedback} more ratings to improve taste accuracy`;
-  } else if (totalFeedback < targetExcellent) {
-    encourageText = `${targetExcellent - totalFeedback} more for excellent recommendations`;
-  } else {
-    encourageText = 'Your taste profile is highly trained!';
+  // Get taste intelligence summary
+  let tasteSummary: TasteSummary;
+  try {
+    tasteSummary = await getTasteSummary();
+  } catch (err) {
+    console.error('[Refyn] Failed to get taste summary:', err);
+    // Fallback to basic display
+    const totalLikes = prefs.stats?.totalLikes || 0;
+    const totalDislikes = (prefs.stats?.totalDislikes || 0) + (prefs.stats?.totalDeletes || 0);
+    progressContainer.innerHTML = `
+      <div class="refyn-progress-header">
+        <span class="refyn-progress-level" style="color: #71717a">Getting Started</span>
+        <span class="refyn-progress-count">${totalLikes + totalDislikes} signals</span>
+      </div>
+    `;
+    return;
   }
+
+  const { level, clarity, capabilities, nextCapability, progressToNext, insights, activity, discovery } = tasteSummary;
 
   progressContainer.innerHTML = `
-    <div class="refyn-progress-header">
-      <span class="refyn-progress-level" style="color: ${levelColor}">${level}</span>
-      <span class="refyn-progress-count">${totalFeedback}/${nextMilestone}</span>
+    <div class="refyn-intel-header">
+      <div class="refyn-intel-level">
+        <span class="refyn-intel-badge" style="background: ${level.color}20; color: ${level.color}; border: 1px solid ${level.color}40">
+          ${level.name}
+        </span>
+        <span class="refyn-intel-clarity">${clarity}% clarity</span>
+      </div>
+      <span class="refyn-intel-desc">${level.description}</span>
     </div>
-    <div class="refyn-progress-bar-container">
-      <div class="refyn-progress-bar" style="width: ${progressPercent}%; background: ${progressColor}"></div>
-      <div class="refyn-progress-markers">
-        <div class="refyn-progress-marker" style="left: ${(targetBasic / maxTarget) * 100}%" title="Learning: ${targetBasic}"></div>
-        <div class="refyn-progress-marker" style="left: ${(targetGood / maxTarget) * 100}%" title="Good: ${targetGood}"></div>
-        <div class="refyn-progress-marker" style="left: ${(targetExcellent / maxTarget) * 100}%" title="Excellent: ${targetExcellent}"></div>
+
+    ${nextCapability ? `
+    <div class="refyn-intel-progress">
+      <div class="refyn-intel-progress-label">
+        <span>Next: ${nextCapability}</span>
+        <span>${progressToNext}%</span>
+      </div>
+      <div class="refyn-intel-progress-bar">
+        <div class="refyn-intel-progress-fill" style="width: ${progressToNext}%; background: ${level.color}"></div>
       </div>
     </div>
-    <div class="refyn-progress-stats">
-      <div class="refyn-progress-stat refyn-stat-positive">
-        <span class="refyn-stat-value">${totalLikes}</span>
-        <span class="refyn-stat-label">Liked</span>
-      </div>
-      <div class="refyn-progress-divider"></div>
-      <div class="refyn-progress-stat refyn-stat-negative">
-        <span class="refyn-stat-value">${totalDislikes}</span>
-        <span class="refyn-stat-label">Disliked</span>
+    ` : ''}
+
+    <div class="refyn-intel-capabilities">
+      <span class="refyn-intel-section-label">Active Capabilities</span>
+      <div class="refyn-intel-caps">
+        ${capabilities.map(cap => `<span class="refyn-intel-cap">${cap}</span>`).join('')}
       </div>
     </div>
-    <div class="refyn-progress-encourage">${encourageText}</div>
+
+    <div class="refyn-intel-stats">
+      <div class="refyn-intel-stat">
+        <span class="refyn-intel-stat-value">${activity.total}</span>
+        <span class="refyn-intel-stat-label">Signals</span>
+      </div>
+      <div class="refyn-intel-stat refyn-stat-positive">
+        <span class="refyn-intel-stat-value">${activity.likes}</span>
+        <span class="refyn-intel-stat-label">Likes</span>
+      </div>
+      <div class="refyn-intel-stat refyn-stat-negative">
+        <span class="refyn-intel-stat-value">${activity.dislikes}</span>
+        <span class="refyn-intel-stat-label">Dislikes</span>
+      </div>
+      <div class="refyn-intel-stat">
+        <span class="refyn-intel-stat-value">${discovery.styles}</span>
+        <span class="refyn-intel-stat-label">Styles</span>
+      </div>
+    </div>
+
+    ${insights.length > 0 ? `
+    <div class="refyn-intel-insights">
+      <span class="refyn-intel-section-label">Insights</span>
+      ${insights.slice(0, 2).map(insight => `
+        <div class="refyn-intel-insight refyn-insight-${insight.type}">
+          <div class="refyn-intel-insight-title">${insight.title}</div>
+          <div class="refyn-intel-insight-desc">${insight.description}</div>
+          ${insight.actionable ? `<div class="refyn-intel-insight-action">${insight.actionable}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
   `;
 }
 
