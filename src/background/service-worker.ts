@@ -270,6 +270,10 @@ interface GetPreferencesMessage {
   type: 'GET_PREFERENCES';
 }
 
+interface OpenPopupMessage {
+  type: 'OPEN_POPUP';
+}
+
 type Message =
   | OptimizeMessage
   | ApiKeyMessage
@@ -302,7 +306,8 @@ type Message =
   | GetTasteLayersMessage
   | GetTasteDimensionsMessage
   | ApplyTasteDimensionsMessage
-  | GetPreferencesMessage;
+  | GetPreferencesMessage
+  | OpenPopupMessage;
 
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener(
@@ -782,6 +787,24 @@ async function handleMessage(message: Message): Promise<unknown> {
         const prefs = await getDeepPreferences();
         return { success: true, data: prefs };
       } catch (error) {
+        return { success: false, error: String(error) };
+      }
+    }
+
+    // Open extension popup in a new window
+    case 'OPEN_POPUP': {
+      try {
+        // Open the popup HTML in a new popup window
+        await chrome.windows.create({
+          url: chrome.runtime.getURL('src/popup/index.html'),
+          type: 'popup',
+          width: 500,
+          height: 650,
+          focused: true,
+        });
+        return { success: true };
+      } catch (error) {
+        console.error('[Refyn] Failed to open popup:', error);
         return { success: false, error: String(error) };
       }
     }

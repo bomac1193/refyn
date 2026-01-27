@@ -444,8 +444,11 @@ const App: React.FC = () => {
     }
   };
 
+  // Debug logging for tab issues
+  console.log('[Refyn Popup] Active tab:', activeTab, 'History:', history.length, 'Saved:', saved.length);
+
   return (
-    <div className="w-[480px] h-[600px] bg-refyn-base text-zinc-100 flex flex-col overflow-hidden">
+    <div className="w-[480px] h-[600px] min-h-[600px] bg-refyn-base text-zinc-100 flex flex-col overflow-hidden">
       <Header
         onSettingsClick={() => setSettingsOpen(true)}
         onHelpClick={openDashboard}
@@ -499,7 +502,7 @@ const App: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {activeTab === 'refyn' && (
           <div className="p-4 space-y-4">
             {/* API Key Warning */}

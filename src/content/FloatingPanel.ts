@@ -318,6 +318,12 @@ function generatePanelHTML(): string {
           <span class="refyn-platform-name">${platformInfo.name}</span>
         </div>
         <div class="refyn-panel-controls">
+          <button class="refyn-control-btn" id="refyn-open-popup-btn" title="Open Extension">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+          </button>
           <button class="refyn-control-btn" id="refyn-minimize-btn" title="${isMinimized ? 'Expand' : 'Minimize'}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               ${isMinimized
@@ -759,6 +765,12 @@ function setupEventListeners(): void {
 
   // Profile refresh
   panel.querySelector('#refyn-refresh-profile')?.addEventListener('click', loadProfile);
+
+  // Open extension popup button
+  panel.querySelector('#refyn-open-popup-btn')?.addEventListener('click', () => {
+    // Send message to background to open the popup
+    chrome.runtime.sendMessage({ type: 'OPEN_POPUP' });
+  });
 
   // Minimize button
   panel.querySelector('#refyn-minimize-btn')?.addEventListener('click', toggleMinimize);
