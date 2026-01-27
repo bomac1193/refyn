@@ -97,29 +97,45 @@ export async function syncToCloud(): Promise<{ success: boolean; error?: string 
 
     // Sync saved prompts (batch upsert)
     if (savedPrompts.length > 0) {
-      const promptsToSync = savedPrompts.map(prompt => ({
-        id: prompt.id,
-        user_id: user.id,
-        content: prompt.content,
-        platform: prompt.platform,
-        created_at: prompt.createdAt,
-        rating: prompt.rating,
-        liked: prompt.liked,
-        tags: prompt.tags,
-        output_image_url: prompt.outputImageUrl,
-        reference_images: prompt.referenceImages,
-        extracted_params: prompt.extractedParams,
-        ai_feedback: prompt.aiFeedback,
-      }));
+      const promptsToSync = savedPrompts
+        .filter(prompt => prompt && prompt.id && prompt.content) // Filter invalid prompts
+        .map(prompt => {
+          // Ensure createdAt is a valid ISO string
+          let createdAt: string;
+          if (prompt.createdAt instanceof Date) {
+            createdAt = prompt.createdAt.toISOString();
+          } else if (typeof prompt.createdAt === 'string' && prompt.createdAt) {
+            createdAt = prompt.createdAt;
+          } else {
+            createdAt = new Date().toISOString();
+          }
 
-      const { error: promptsError } = await supabase
-        .from('saved_prompts')
-        .upsert(promptsToSync, {
-          onConflict: 'id',
+          return {
+            id: prompt.id,
+            user_id: user.id,
+            content: prompt.content,
+            platform: prompt.platform,
+            created_at: createdAt,
+            rating: prompt.rating,
+            liked: prompt.liked,
+            tags: prompt.tags || [],
+            output_image_url: prompt.outputImageUrl,
+            reference_images: prompt.referenceImages,
+            extracted_params: prompt.extractedParams,
+            ai_feedback: prompt.aiFeedback,
+          };
         });
 
-      if (promptsError) {
-        console.error('[Refyn Sync] Prompts sync error:', promptsError);
+      if (promptsToSync.length > 0) {
+        const { error: promptsError } = await supabase
+          .from('saved_prompts')
+          .upsert(promptsToSync, {
+            onConflict: 'id',
+          });
+
+        if (promptsError) {
+          console.error('[Refyn Sync] Prompts sync error:', promptsError);
+        }
       }
     }
 

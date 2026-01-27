@@ -10,20 +10,58 @@ export function generateId(): string {
 /**
  * Format a date for display
  */
-export function formatDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+export function formatDate(date: Date | string | unknown): string {
+  if (!date) return '';
+
+  try {
+    const d = date instanceof Date ? date : new Date(String(date));
+    if (isNaN(d.getTime())) return '';
+
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return '';
+  }
 }
 
 /**
  * Format relative time (e.g., "2 hours ago")
  */
-export function formatRelativeTime(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+export function formatRelativeTime(date: Date | string | unknown): string {
+  // Handle invalid/missing inputs
+  if (!date) return '';
+
+  let d: Date;
+
+  try {
+    if (date instanceof Date) {
+      d = date;
+    } else if (typeof date === 'string') {
+      d = new Date(date);
+    } else if (typeof date === 'object' && date !== null) {
+      // Handle serialized objects - try to extract a valid date
+      const obj = date as Record<string, unknown>;
+      if (typeof obj.getTime === 'function') {
+        d = date as Date;
+      } else {
+        // Could be an ISO string stored as object, try string conversion
+        d = new Date(String(date));
+      }
+    } else {
+      return '';
+    }
+
+    // Check if date is valid
+    if (isNaN(d.getTime())) {
+      return '';
+    }
+  } catch {
+    return '';
+  }
+
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const diffSec = Math.floor(diffMs / 1000);
