@@ -256,15 +256,25 @@ function trackOutput(element: HTMLElement): void {
     linkPromptToOutput(prompt, outputId, currentPlatform);
   }
 
-  // Add rating overlay (users can rate from there instead of popup spam)
-  if (ratingOverlaysEnabled) {
+  // Add rating overlay - but be conservative on unproven platforms
+  // Only add overlays where we're confident the element is an AI output
+  const shouldAddOverlay =
+    ratingOverlaysEnabled &&
+    prompt && // Only if we found an associated prompt
+    (
+      currentPlatform === 'midjourney' ||
+      currentPlatform === 'leonardo' ||
+      currentPlatform === 'dalle' ||
+      // For other platforms, require the element to have clear AI output indicators
+      (element instanceof HTMLImageElement && element.src) ||
+      (element instanceof HTMLVideoElement && element.src)
+    );
+
+  if (shouldAddOverlay) {
     addRatingOverlay(element, outputId);
   }
 
-  // NOTE: Removed automatic quick-rate popup - it was too intrusive
-  // Users can rate outputs via the overlay that appears on hover
-
-  console.log('[Refyn Observer] Tracking new output:', outputId, prompt ? '(has prompt)' : '(no prompt)');
+  console.log('[Refyn Observer] Tracking output:', outputId, prompt ? '(has prompt)' : '(no prompt)', shouldAddOverlay ? '(with overlay)' : '');
 }
 
 /**
@@ -847,31 +857,40 @@ async function handleDislikeAction(output: OutputElement): Promise<void> {
 
 /**
  * Add Refyn rating overlay to an output element
+ * Minimal, unintrusive design - only adds to elements with clear AI output
  */
 function addRatingOverlay(element: HTMLElement, outputId: string): void {
   // Check if overlay already exists
   if (element.querySelector('.refyn-rating-overlay')) return;
 
-  // Create overlay container
+  // Don't add overlays to very small elements (likely thumbnails or icons)
+  const rect = element.getBoundingClientRect();
+  if (rect.width < 100 || rect.height < 100) return;
+
+  // Create overlay container - minimal design with heart icons
   const overlay = document.createElement('div');
   overlay.className = 'refyn-rating-overlay';
   overlay.innerHTML = `
     <div class="refyn-rating-buttons">
-      <button class="refyn-rate-btn refyn-rate-like" data-action="like" data-output="${outputId}" title="I like this">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+      <button class="refyn-rate-btn refyn-rate-like" data-action="like" data-output="${outputId}" title="Like">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
         </svg>
       </button>
-      <button class="refyn-rate-btn refyn-rate-dislike" data-action="dislike" data-output="${outputId}" title="I don't like this">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+      <button class="refyn-rate-btn refyn-rate-dislike" data-action="dislike" data-output="${outputId}" title="Dislike">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="15" y1="9" x2="9" y2="15"></line>
+          <line x1="9" y1="9" x2="15" y2="15"></line>
         </svg>
       </button>
     </div>
-    <div class="refyn-rating-label">Rate with Refyn</div>
   `;
 
-  // Position the overlay
+  // Add class to parent for CSS hover detection (safer than modifying position)
+  element.classList.add('refyn-rating-parent');
+
+  // Ensure element can contain absolutely positioned children
   const style = window.getComputedStyle(element);
   if (style.position === 'static') {
     element.style.position = 'relative';
@@ -912,15 +931,11 @@ async function handleRefynLike(output: OutputElement, button: HTMLElement): Prom
     );
     output.rated = true;
 
-    // Visual feedback
+    // Visual feedback - fill the heart
     button.classList.add('active');
-    const overlay = button.closest('.refyn-rating-overlay');
-    if (overlay) {
-      const label = overlay.querySelector('.refyn-rating-label');
-      if (label) {
-        label.textContent = 'Tell us more...';
-        label.classList.add('refyn-rated');
-      }
+    const svg = button.querySelector('svg');
+    if (svg) {
+      svg.setAttribute('fill', 'currentColor');
     }
 
     // Show feedback popup for detailed feedback
@@ -943,14 +958,6 @@ async function handleRefynDislike(output: OutputElement, button: HTMLElement): P
 
     // Visual feedback
     button.classList.add('active');
-    const overlay = button.closest('.refyn-rating-overlay');
-    if (overlay) {
-      const label = overlay.querySelector('.refyn-rating-label');
-      if (label) {
-        label.textContent = 'Tell us more...';
-        label.classList.add('refyn-rated');
-      }
-    }
 
     // Show feedback popup for detailed feedback
     showDislikeFeedbackPopup(output.prompt, output.platform, output.outputId);
