@@ -138,7 +138,7 @@ export async function syncToCloud(): Promise<{ success: boolean; error?: string 
 /**
  * Pull data from Supabase and merge with local
  */
-export async function syncFromCloud(): Promise<{ success: boolean; error?: string }> {
+export async function syncFromCloud(): Promise<{ success: boolean; error?: string; restoredPrompts?: number }> {
   const user = await getCurrentUser();
   if (!user) {
     return { success: false, error: 'Not logged in' };
@@ -147,8 +147,8 @@ export async function syncFromCloud(): Promise<{ success: boolean; error?: strin
   const supabase = await getSupabase();
 
   try {
-    // Fetch cloud data (promptsResult intentionally unused - for future use)
-    const [prefsResult, profileResult, _promptsResult] = await Promise.all([
+    // Fetch cloud data
+    const [prefsResult, profileResult, promptsResult] = await Promise.all([
       supabase
         .from('user_preferences')
         .select('deep_preferences, updated_at')
@@ -186,16 +186,65 @@ export async function syncFromCloud(): Promise<{ success: boolean; error?: strin
       }
     }
 
-    // Prompts are handled individually - cloud data is informational
-    // Local prompts remain local for privacy
+    // Restore saved prompts from cloud - merge with local
+    let restoredCount = 0;
+    if (promptsResult.data && promptsResult.data.length > 0) {
+      const localPrompts = await getSavedPrompts();
+      const localIds = new Set(localPrompts.map(p => p.id));
+
+      // Find prompts in cloud that aren't in local
+      const cloudOnlyPrompts = promptsResult.data
+        .filter((p: CloudPrompt) => !localIds.has(p.id))
+        .map((p: CloudPrompt) => ({
+          id: p.id,
+          content: p.content,
+          platform: p.platform,
+          createdAt: new Date(p.created_at),
+          rating: p.rating,
+          liked: p.liked,
+          tags: p.tags || [],
+          outputImageUrl: p.output_image_url,
+          referenceImages: p.reference_images,
+          extractedParams: p.extracted_params,
+          aiFeedback: p.ai_feedback,
+        }));
+
+      if (cloudOnlyPrompts.length > 0) {
+        // Merge: local + cloud-only, sorted by date
+        const mergedPrompts = [...localPrompts, ...cloudOnlyPrompts]
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        await chrome.storage.local.set({
+          ['refyn_saved_prompts']: mergedPrompts,
+        });
+
+        restoredCount = cloudOnlyPrompts.length;
+        console.log(`[Refyn Sync] Restored ${restoredCount} prompts from cloud`);
+      }
+    }
 
     await setLastSync(new Date().toISOString());
     console.log('[Refyn Sync] Pull from cloud complete');
-    return { success: true };
+    return { success: true, restoredPrompts: restoredCount };
   } catch (err) {
     console.error('[Refyn Sync] Pull failed:', err);
     return { success: false, error: String(err) };
   }
+}
+
+// Type for cloud prompt data
+interface CloudPrompt {
+  id: string;
+  content: string;
+  platform: string;
+  created_at: string;
+  rating?: number;
+  liked?: boolean;
+  tags?: string[];
+  output_image_url?: string;
+  reference_images?: string[];
+  extracted_params?: Record<string, string>;
+  ai_feedback?: unknown;
 }
 
 /**

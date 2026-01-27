@@ -8,6 +8,21 @@ import type {
   Platform,
 } from '@/shared/types';
 
+// Auto-sync flag - will be set by sync module to avoid circular imports
+let autoSyncEnabled = false;
+let syncCallback: (() => void) | null = null;
+
+export function enableAutoSync(callback: () => void): void {
+  autoSyncEnabled = true;
+  syncCallback = callback;
+}
+
+function triggerAutoSync(): void {
+  if (autoSyncEnabled && syncCallback) {
+    syncCallback();
+  }
+}
+
 /**
  * Chrome Storage wrapper with type safety
  */
@@ -158,6 +173,9 @@ export async function savePrompt(
     [STORAGE_KEYS.SAVED_PROMPTS]: [record, ...saved],
   });
 
+  // Trigger cloud sync
+  triggerAutoSync();
+
   return record;
 }
 
@@ -166,6 +184,9 @@ export async function removeSavedPrompt(id: string): Promise<void> {
   await chrome.storage.local.set({
     [STORAGE_KEYS.SAVED_PROMPTS]: saved.filter(p => p.id !== id),
   });
+
+  // Trigger cloud sync
+  triggerAutoSync();
 }
 
 export async function updateSavedPrompt(
@@ -178,6 +199,9 @@ export async function updateSavedPrompt(
       p.id === id ? { ...p, ...updates } : p
     ),
   });
+
+  // Trigger cloud sync
+  triggerAutoSync();
 }
 
 export async function updatePromptRating(id: string, rating: number): Promise<void> {
@@ -267,4 +291,92 @@ export async function importData(jsonString: string): Promise<void> {
 // Clear all data
 export async function clearAllData(): Promise<void> {
   await chrome.storage.local.clear();
+}
+
+// Export saved prompts to JSON file
+export async function exportSavedPrompts(): Promise<string> {
+  const saved = await getSavedPrompts();
+  const exportData = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    prompts: saved,
+  };
+  return JSON.stringify(exportData, null, 2);
+}
+
+// Import saved prompts from JSON
+export async function importSavedPrompts(jsonString: string): Promise<{ imported: number; skipped: number }> {
+  const data = JSON.parse(jsonString);
+  const importedPrompts = data.prompts || data; // Support both wrapped and raw format
+
+  if (!Array.isArray(importedPrompts)) {
+    throw new Error('Invalid import format');
+  }
+
+  const existing = await getSavedPrompts();
+  const existingIds = new Set(existing.map(p => p.id));
+
+  let imported = 0;
+  let skipped = 0;
+
+  const newPrompts: PromptRecord[] = [];
+
+  for (const prompt of importedPrompts) {
+    if (existingIds.has(prompt.id)) {
+      skipped++;
+      continue;
+    }
+
+    newPrompts.push({
+      ...prompt,
+      createdAt: new Date(prompt.createdAt),
+    });
+    imported++;
+  }
+
+  if (newPrompts.length > 0) {
+    const merged = [...newPrompts, ...existing]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.SAVED_PROMPTS]: merged,
+    });
+
+    triggerAutoSync();
+  }
+
+  return { imported, skipped };
+}
+
+// Recover prompts from history to saved
+export async function recoverFromHistory(): Promise<number> {
+  const history = await getPromptHistory();
+  const saved = await getSavedPrompts();
+  const savedContents = new Set(saved.map(p => p.content));
+
+  let recovered = 0;
+  const toRecover: PromptRecord[] = [];
+
+  for (const historyItem of history) {
+    // Skip if already saved (by content match)
+    if (savedContents.has(historyItem.content)) {
+      continue;
+    }
+
+    toRecover.push({
+      ...historyItem,
+      id: generateId(), // Generate new ID
+    });
+    recovered++;
+  }
+
+  if (toRecover.length > 0) {
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.SAVED_PROMPTS]: [...toRecover, ...saved],
+    });
+
+    triggerAutoSync();
+  }
+
+  return recovered;
 }

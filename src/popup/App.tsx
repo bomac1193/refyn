@@ -19,7 +19,13 @@ import {
   savePrompt,
   removeSavedPrompt,
   getTasteProfile,
+  exportSavedPrompts,
+  importSavedPrompts,
+  recoverFromHistory,
+  enableAutoSync,
 } from '@/lib/storage';
+import { syncToCloud, syncFromCloud, scheduleSyncToCloud } from '@/lib/supabase/sync';
+import { getCurrentUser } from '@/lib/supabase/auth';
 import { STORAGE_KEYS, PLATFORMS } from '@/shared/constants';
 import { getPresetsForCategory } from '@/shared/presets';
 import type { StylePreset } from '@/shared/types';
@@ -103,8 +109,27 @@ const App: React.FC = () => {
     const historyData = await getPromptHistory();
     setHistory(historyData);
 
-    const savedData = await getSavedPrompts();
+    let savedData = await getSavedPrompts();
+
+    // If no saved prompts locally, try to restore from cloud
+    if (savedData.length === 0) {
+      const user = await getCurrentUser();
+      if (user) {
+        console.log('[Refyn] No local prompts, attempting cloud restore...');
+        const result = await syncFromCloud();
+        if (result.success && result.restoredPrompts && result.restoredPrompts > 0) {
+          console.log(`[Refyn] Restored ${result.restoredPrompts} prompts from cloud`);
+          savedData = await getSavedPrompts();
+        }
+      }
+    }
+
     setSaved(savedData);
+
+    // Enable auto-sync for future saves
+    enableAutoSync(() => {
+      scheduleSyncToCloud(5000); // Sync 5 seconds after changes
+    });
 
     // Load last used platform and mode from storage
     const stored = await chrome.storage.local.get([STORAGE_KEYS.LAST_PLATFORM, STORAGE_KEYS.LAST_MODE, 'refyn-moodboard-mode', 'refyn-chaos-intensity', 'refyn-selected-dimensions']);
@@ -695,11 +720,116 @@ const App: React.FC = () => {
 
         {activeTab === 'saved' && (
           <div className="p-4 space-y-3">
+            {/* Library Actions */}
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-zinc-700/50">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const json = await exportSavedPrompts();
+                      const blob = new Blob([json], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `refyn-library-${new Date().toISOString().split('T')[0]}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch (err) {
+                      console.error('Export failed:', err);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-refyn-cyan hover:bg-refyn-cyan/10 rounded transition-colors"
+                  title="Export library to JSON"
+                >
+                  <Download className="w-3 h-3" />
+                  Export
+                </button>
+                <label className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-refyn-cyan hover:bg-refyn-cyan/10 rounded transition-colors cursor-pointer">
+                  <Upload className="w-3 h-3" />
+                  Import
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const text = await file.text();
+                        const result = await importSavedPrompts(text);
+                        const updated = await getSavedPrompts();
+                        setSaved(updated);
+                        alert(`Imported ${result.imported} prompts (${result.skipped} already existed)`);
+                      } catch (err) {
+                        alert('Import failed: ' + String(err));
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                {history.length > 0 && saved.length === 0 && (
+                  <button
+                    onClick={async () => {
+                      const recovered = await recoverFromHistory();
+                      if (recovered > 0) {
+                        const updated = await getSavedPrompts();
+                        setSaved(updated);
+                        alert(`Recovered ${recovered} prompts from history!`);
+                      } else {
+                        alert('No new prompts to recover');
+                      }
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-amber-400 hover:bg-amber-400/10 rounded transition-colors"
+                    title="Recover prompts from history"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Recover
+                  </button>
+                )}
+                <button
+                  onClick={async () => {
+                    const user = await getCurrentUser();
+                    if (!user) {
+                      alert('Please sign in to sync');
+                      return;
+                    }
+                    const result = await syncToCloud();
+                    if (result.success) {
+                      alert('Synced to cloud!');
+                    } else {
+                      alert('Sync failed: ' + result.error);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-refyn-cyan hover:bg-refyn-cyan/10 rounded transition-colors"
+                  title="Sync to cloud"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Sync
+                </button>
+              </div>
+            </div>
+
             {saved.length === 0 ? (
               <div className="text-center py-8 text-zinc-500">
                 <Star className="w-10 h-10 mx-auto mb-3 opacity-50" />
                 <p className="text-sm">No saved prompts</p>
                 <p className="text-xs mt-1">Save your favorite prompts for quick access</p>
+                {history.length > 0 && (
+                  <button
+                    onClick={async () => {
+                      const recovered = await recoverFromHistory();
+                      if (recovered > 0) {
+                        const updated = await getSavedPrompts();
+                        setSaved(updated);
+                      }
+                    }}
+                    className="mt-3 px-3 py-1.5 text-xs text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 rounded transition-colors"
+                  >
+                    Recover {history.length} from History
+                  </button>
+                )}
               </div>
             ) : (
               saved
