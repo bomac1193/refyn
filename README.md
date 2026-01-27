@@ -232,6 +232,79 @@ npm run build  # Should complete with no errors
 
 ---
 
+## Strategic Next Steps & Partnership Potential
+
+### Browser Strategy
+
+**Current Coverage (Chromium-based — ~71% market share)**
+| Browser | Status | Effort |
+|---------|--------|--------|
+| Chrome | ✅ Live | Done |
+| Edge | ✅ Compatible | Minimal |
+| Brave | ✅ Compatible | Minimal |
+| Arc | ✅ Compatible | Minimal |
+
+**Emerging AI-Native Browsers (HIGH PRIORITY)**
+| Browser | Company | Status | Partnership Potential |
+|---------|---------|--------|----------------------|
+| **Operator** | OpenAI | Early access | HIGH — they need creative tools |
+| **Dia** | The Browser Company | Coming 2025 | HIGH — want differentiation |
+| **Arc** | The Browser Company | Live | MEDIUM — established but open |
+| **Brave Leo** | Brave | Live | MEDIUM — privacy-focused AI |
+| **Opera Aria** | Opera | Live | LOW — mainstream focus |
+
+### Partnership Opportunities
+
+**Tier 1: Platform Integration (Highest Value)**
+- **Midjourney** — Native integration into Discord bot or web app
+- **Leonardo AI** — Embedded prompt optimization
+- **Runway ML** — Creative suite integration
+- *Pitch: "Refyn increases user engagement and output quality"*
+
+**Tier 2: AI Browser Native Integration**
+- **Operator/OpenAI** — Build as a ChatGPT plugin/action
+- **Dia/Arc** — Native taste learning layer for the browser
+- *Pitch: "Refyn's taste API makes your browser understand what users want to create"*
+
+**Tier 3: Creative Tool Ecosystem**
+- **Adobe Creative Cloud** — Firefly prompt optimization
+- **Figma** — AI feature enhancement
+- **Canva** — Magic Studio integration
+
+### Immediate Action Items
+
+1. **Operator/OpenAI**
+   - [ ] Apply for Operator API/plugin access
+   - [ ] Build Refyn as a ChatGPT action
+   - [ ] Spec out integration architecture
+
+2. **The Browser Company (Dia/Arc)**
+   - [ ] Direct outreach to team (small, responsive)
+   - [ ] Propose native taste learning integration
+   - [ ] Demo current extension capabilities
+
+3. **Package Refyn as an API**
+   - [ ] Extract core taste learning into standalone API
+   - [ ] Create developer documentation
+   - [ ] Build simple integration SDK
+   - *Makes integration easy for any browser/platform*
+
+4. **Discord Bot (Midjourney Alternative)**
+   - [ ] Build Refyn as a Discord bot
+   - [ ] No extension dependency
+   - [ ] Works for all Midjourney users directly
+   - [ ] Easier viral growth potential
+
+### Strategic Positioning
+
+**Don't be "extension on every browser"**
+
+**Be "the taste layer that browsers integrate natively"**
+
+The goal is to become the canonical interface between human creative intent and AI generation capability — whether that's via extension, native integration, API, or bot.
+
+---
+
 ## License
 
 Proprietary — All rights reserved.
