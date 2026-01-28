@@ -1,6 +1,6 @@
 # Refyn
 
-> **"Evolve Every Prompt"** — Your AI-native prompt optimization companion that learns your creative taste.
+> **"Create The Unseen"**
 
 ---
 
@@ -35,7 +35,7 @@ AI image generation requires crafting precise prompts — a skill that takes mon
 
 ---
 
-## Kernel: Strategic Diagnosis (1-5-10-20-40 Year Scope)
+## Vision (1 → 40 Years)
 
 ### Year 1: Foundation
 *"Make prompt optimization frictionless"*
@@ -176,132 +176,6 @@ npm run build
 # 3. Click "Load unpacked"
 # 4. Select the dist/ folder
 ```
-
----
-
-## Next Steps for Claude (Continuation Context)
-
-When resuming this project, Claude should know:
-
-### Current State (January 2026)
-1. **Core extension working** — Popup, floating panel, background service worker all functional
-2. **Platform detection** — Works for Midjourney, DALL-E, Leonardo, Runway, and others
-3. **Prompt optimization** — Claude API integration for enhance/expand/simplify modes
-4. **Taste learning** — Deep preference system tracks keywords from likes/saves/trashes
-5. **Trash feedback** — Popup appears on delete clicks with preset reasons + custom input
-6. **Moodboard toggle** — Strips --weird parameter for Midjourney moodboard users
-
-### Recent Work Completed
-- Fixed prompt detection to exclude Refyn's own elements (`isRefynElement()`)
-- Fixed React input insertion using native value setter
-- Made floating panel appear on ALL pages (not just detected platforms)
-- Added compact responsive CSS for smaller screens
-- Implemented trash observer with platform-specific selectors
-- Created trash feedback popup with 6 presets + custom input
-- Added `recordTrashFeedback()` to deep learning system
-- Created stress test file (`trashFeedbackTest.ts`)
-
-### Known Issues / TODO
-- [ ] Test trash feedback on live Midjourney (selectors may need tuning)
-- [ ] Higgsfield-specific selectors for trash buttons
-- [ ] Dashboard page needs full implementation
-- [ ] Prompt library/history feature
-- [ ] Export/import preferences
-- [ ] Analytics dashboard for taste insights
-
-### Key Files to Read First
-1. `src/content/FloatingPanel.ts` — Main UI logic, trash observer
-2. `src/content/platformDetector.ts` — Platform detection, input handling
-3. `src/lib/deepLearning.ts` — Taste learning, preference scoring
-4. `src/content/content.css` — All styles including compact panel, trash popup
-5. `src/background/service-worker.ts` — API calls to Claude
-
-### Testing Commands (Browser Console)
-```javascript
-// Run trash feedback stress test
-window.refynTrashTest()
-
-// Validate storage structure
-window.refynTrashValidate()
-```
-
-### Build & Verify
-```bash
-npm run build  # Should complete with no errors
-```
-
----
-
-## Strategic Next Steps & Partnership Potential
-
-### Browser Strategy
-
-**Current Coverage (Chromium-based — ~71% market share)**
-| Browser | Status | Effort |
-|---------|--------|--------|
-| Chrome | ✅ Live | Done |
-| Edge | ✅ Compatible | Minimal |
-| Brave | ✅ Compatible | Minimal |
-| Arc | ✅ Compatible | Minimal |
-
-**Emerging AI-Native Browsers (HIGH PRIORITY)**
-| Browser | Company | Status | Partnership Potential |
-|---------|---------|--------|----------------------|
-| **Operator** | OpenAI | Early access | HIGH — they need creative tools |
-| **Dia** | The Browser Company | Coming 2025 | HIGH — want differentiation |
-| **Arc** | The Browser Company | Live | MEDIUM — established but open |
-| **Brave Leo** | Brave | Live | MEDIUM — privacy-focused AI |
-| **Opera Aria** | Opera | Live | LOW — mainstream focus |
-
-### Partnership Opportunities
-
-**Tier 1: Platform Integration (Highest Value)**
-- **Midjourney** — Native integration into Discord bot or web app
-- **Leonardo AI** — Embedded prompt optimization
-- **Runway ML** — Creative suite integration
-- *Pitch: "Refyn increases user engagement and output quality"*
-
-**Tier 2: AI Browser Native Integration**
-- **Operator/OpenAI** — Build as a ChatGPT plugin/action
-- **Dia/Arc** — Native taste learning layer for the browser
-- *Pitch: "Refyn's taste API makes your browser understand what users want to create"*
-
-**Tier 3: Creative Tool Ecosystem**
-- **Adobe Creative Cloud** — Firefly prompt optimization
-- **Figma** — AI feature enhancement
-- **Canva** — Magic Studio integration
-
-### Immediate Action Items
-
-1. **Operator/OpenAI**
-   - [ ] Apply for Operator API/plugin access
-   - [ ] Build Refyn as a ChatGPT action
-   - [ ] Spec out integration architecture
-
-2. **The Browser Company (Dia/Arc)**
-   - [ ] Direct outreach to team (small, responsive)
-   - [ ] Propose native taste learning integration
-   - [ ] Demo current extension capabilities
-
-3. **Package Refyn as an API**
-   - [ ] Extract core taste learning into standalone API
-   - [ ] Create developer documentation
-   - [ ] Build simple integration SDK
-   - *Makes integration easy for any browser/platform*
-
-4. **Discord Bot (Midjourney Alternative)**
-   - [ ] Build Refyn as a Discord bot
-   - [ ] No extension dependency
-   - [ ] Works for all Midjourney users directly
-   - [ ] Easier viral growth potential
-
-### Strategic Positioning
-
-**Don't be "extension on every browser"**
-
-**Be "the taste layer that browsers integrate natively"**
-
-The goal is to become the canonical interface between human creative intent and AI generation capability — whether that's via extension, native integration, API, or bot.
 
 ---
 
