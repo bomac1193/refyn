@@ -17,6 +17,34 @@ The result: millions of creators trapped between their vision and what they can 
 
 ---
 
+## Who This Is For
+
+- Obsessives who regenerate 50 times to get it right
+- Creators who have a vision and refuse to compromise
+- People who treat prompting as a craft, not a chore
+
+## Who This Is Not For
+
+- "Good enough" people
+- One-prompt-and-done users
+- Anyone who thinks AI does the creative work
+
+---
+
+## What Refyn Does
+
+- Learns your taste until it knows what you want before you do
+- Translates your intent across every platform
+- Gets out of your way
+
+## What Refyn Doesn't Do
+
+- Hand-hold beginners through their first prompt
+- Make mediocre ideas look good
+- Apologize for being opinionated
+
+---
+
 ## Guiding Policy
 
 **Invisible Intelligence**
@@ -31,18 +59,11 @@ No "correct" style. Refyn observes what you save, like, and trash — then adapt
 
 ---
 
-## Strategy
+## Platforms
 
-Refyn is the **taste layer** between human intent and AI generation.
+**Now:** Midjourney, DALL-E, Leonardo, Runway
 
-**Universal Coverage**
-Works across Midjourney, DALL-E, Leonardo, Runway, Ideogram, Flux, Kling, Pika, Luma — and extensible to any platform.
-
-**Deep Taste Learning**
-Tracks your preferences through behavior: saves, likes, trashes with reasons. Builds a personal preference model that improves every suggestion.
-
-**Frictionless Integration**
-Chrome extension with floating panel. Grab prompts, enhance them, insert them — without leaving the page.
+**Soon:** Ideogram, Flux, Kling, Pika, Luma
 
 ---
 

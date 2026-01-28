@@ -637,24 +637,40 @@ The user explicitly wants VARIATION. Give them something they've NEVER seen befo
   }
 
   // TEXTURE LAYER INSTRUCTION
-  // If texture effects are selected, instruct the AI to incorporate them
+  // If texture effects are selected, instruct the AI to incorporate them FORCEFULLY
   let textureInstruction = '';
   if (textureModifier && textureModifier.trim()) {
     systemPrompt += `
 
-████ TEXTURE LAYER EFFECT ████
-The user has selected texture/damage effects to apply to the image.
-You MUST incorporate these texture descriptions naturally into the final prompt.
-Add them as visual qualities that affect the ENTIRE image aesthetic.
+████████████████████████████████████████████████████████████████
+█  TEXTURE LAYER - MANDATORY VISUAL DESTRUCTION  █
+████████████████████████████████████████████████████████████████
 
-Texture effects to incorporate:
+⚠️ THE TEXTURE EFFECT IS NOT OPTIONAL. IT IS THE DOMINANT VISUAL FEATURE. ⚠️
+
+TEXTURE EFFECTS TO APPLY (MUST BE VISIBLE AND SEVERE):
 ${textureModifier}
 
-Integrate these ORGANICALLY - don't just append them, weave them into the visual description.
-For example, instead of "portrait, with burnt edges", write "portrait emerging from scorched darkness, edges blackened and curling like forgotten photographs".
-████████████████████████████████`;
+RULES FOR TEXTURE APPLICATION:
+1. The texture effect should be IMMEDIATELY OBVIOUS - not subtle, not "a hint of"
+2. At least 30-50% of the image should show texture damage/effect
+3. The texture CHANGES how the subject appears - it doesn't just sit on top
+4. Use language like: "consumed by", "ravaged by", "overtaken by", "dissolving into"
+5. The texture IS the aesthetic - the subject exists WITHIN the destruction
+
+WRONG: "portrait with slight burnt edges"
+RIGHT: "portrait consumed by fire damage, charred edges eating 40% of the frame, scorch marks crawling across the face, smoke-stained emulsion, pulled from the ashes of a house fire"
+
+WRONG: "landscape with subtle grain"
+RIGHT: "landscape dissolving into extreme film grain, ISO 25600 noise obliterating fine detail, subject barely recognizable through analog static, sandpaper texture across the entire frame"
+
+The user selected this texture because they WANT VISIBLE DAMAGE. Deliver it.
+████████████████████████████████████████████████████████████████`;
     textureInstruction = `
-[TEXTURE: Apply these effects: ${textureModifier.replace(', with ', '').replace(', ', ' + ')}]
+
+████ TEXTURE REQUIREMENT ████
+APPLY SEVERELY: ${textureModifier.replace(/TEXTURE DOMINANT: /g, '')}
+This must be VISUALLY DOMINANT in the final prompt - not subtle, not gentle.
 `;
   }
 

@@ -342,27 +342,60 @@ async function handleMessage(message: Message): Promise<unknown> {
         try {
           const deepPrefs = await getDeepPreferences();
           if (deepPrefs && deepPrefs.keywordScores && Object.keys(deepPrefs.keywordScores).length > 0) {
-            const likedKeywords: string[] = [];
-            const avoidKeywords: string[] = [];
+            const likedKeywords: { keyword: string; score: number }[] = [];
+            const avoidKeywords: { keyword: string; score: number }[] = [];
 
+            // Lower threshold from ±2 to ±1 to be more responsive to feedback
             for (const [_category, keywords] of Object.entries(deepPrefs.keywordScores)) {
               for (const [keyword, score] of Object.entries(keywords)) {
-                if (score >= 2) {
-                  likedKeywords.push(keyword);
-                } else if (score <= -2) {
-                  avoidKeywords.push(keyword);
+                if (score >= 1) {
+                  likedKeywords.push({ keyword, score });
+                } else if (score <= -1) {
+                  avoidKeywords.push({ keyword, score: Math.abs(score) });
                 }
               }
             }
 
+            // Sort by score strength
+            likedKeywords.sort((a, b) => b.score - a.score);
+            avoidKeywords.sort((a, b) => b.score - a.score);
+
             if (likedKeywords.length > 0 || avoidKeywords.length > 0) {
-              finalPreferenceContext = `\n\nUSER TASTE PREFERENCES (from learned taste stack):\n`;
+              finalPreferenceContext = `
+
+████████████████████████████████████████████████████████████████
+█  LEARNED USER TASTE - MANDATORY APPLICATION  █
+████████████████████████████████████████████████████████████████
+
+These preferences are learned from the user's explicit feedback (likes, dislikes, ratings).
+You MUST incorporate liked keywords and MUST avoid disliked keywords.
+
+`;
               if (likedKeywords.length > 0) {
-                finalPreferenceContext += `STRONGLY INCORPORATE: ${likedKeywords.slice(0, 20).join(', ')}\n`;
+                const stronglyLiked = likedKeywords.filter(k => k.score >= 3).map(k => k.keyword);
+                const liked = likedKeywords.filter(k => k.score >= 1 && k.score < 3).map(k => k.keyword);
+
+                if (stronglyLiked.length > 0) {
+                  finalPreferenceContext += `⭐ STRONGLY PREFER (user loves these): ${stronglyLiked.slice(0, 10).join(', ')}\n`;
+                }
+                if (liked.length > 0) {
+                  finalPreferenceContext += `✓ INCORPORATE (user likes these): ${liked.slice(0, 15).join(', ')}\n`;
+                }
               }
               if (avoidKeywords.length > 0) {
-                finalPreferenceContext += `AVOID: ${avoidKeywords.slice(0, 10).join(', ')}\n`;
+                const stronglyDisliked = avoidKeywords.filter(k => k.score >= 3).map(k => k.keyword);
+                const disliked = avoidKeywords.filter(k => k.score >= 1 && k.score < 3).map(k => k.keyword);
+
+                if (stronglyDisliked.length > 0) {
+                  finalPreferenceContext += `✗ NEVER USE (user hates these): ${stronglyDisliked.slice(0, 10).join(', ')}\n`;
+                }
+                if (disliked.length > 0) {
+                  finalPreferenceContext += `✗ AVOID (user dislikes these): ${disliked.slice(0, 10).join(', ')}\n`;
+                }
               }
+              finalPreferenceContext += `
+████████████████████████████████████████████████████████████████
+`;
             }
           }
         } catch (e) {
